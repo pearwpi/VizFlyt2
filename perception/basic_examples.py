@@ -116,6 +116,12 @@ def example_module_composition(config_path: str, json_path: str):
     print(f"Composed outputs: {list(results.keys())}")
     print()
 
+    # Save concatenated stereo pair
+    os.makedirs("outputs", exist_ok=True)
+    cv2.imwrite("outputs/mono_blur.png", results['rgb'])
+    print("Saved: outputs/mono_blur.png")
+    print()
+
 
 # ========== Main ==========
 

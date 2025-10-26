@@ -66,6 +66,51 @@ class NoiseModule(VisionModule):
         }
 
 
+class BlurModule(VisionModule):
+    """Applies Gaussian blur to RGB images."""
+    
+    def __init__(self, kernel_size=15, sigma=3.0):
+        self.kernel_size = kernel_size
+        self.sigma = sigma
+    
+    def render(self, position, orientation_rpy, rgb=None, **kwargs):
+        """Apply Gaussian blur to RGB image."""
+        if rgb is None:
+            return {}
+        
+        # Apply Gaussian blur
+        blurred = cv2.GaussianBlur(rgb, (self.kernel_size, self.kernel_size), self.sigma)
+        
+        return {
+            'rgb': blurred,  # Pass blurred RGB to next module
+            'rgb_original': rgb  # Keep original for comparison
+        }
+
+
+class EdgeModule(VisionModule):
+    """Detects edges in RGB images."""
+    
+    def __init__(self, low_threshold=50, high_threshold=150):
+        self.low_threshold = low_threshold
+        self.high_threshold = high_threshold
+    
+    def render(self, position, orientation_rpy, rgb=None, **kwargs):
+        """Detect edges using Canny."""
+        if rgb is None:
+            return {}
+        
+        # Convert to grayscale
+        gray = cv2.cvtColor(rgb, cv2.COLOR_RGB2GRAY)
+        
+        # Apply Canny edge detection
+        edges = cv2.Canny(gray, self.low_threshold, self.high_threshold)
+        
+        return {
+            'edges': edges,
+            'rgb': rgb  # Pass through RGB
+        }
+
+
 class FlowModule(VisionModule):
     """Computes optical flow between consecutive frames."""
     
@@ -181,15 +226,25 @@ def example_noise_flow(config_path: str, json_path: str):
         # Render with composition
         results = composed.render(position, orientation_rpy)
         
-        # Save RGB (now noisy)
+        # Save noisy RGB
         cv2.imwrite(
-            f"outputs/noisy_flow_frame_{i:03d}.png",
+            f"outputs/noise_flow_rgb_{i:03d}.png",
             results['rgb']
         )
         
+        # Save flow visualization (magnitude as heatmap)
+        if 'flow_magnitude' in results:
+            flow_mag = results['flow_magnitude']
+            flow_norm = cv2.normalize(flow_mag, None, 0, 255, cv2.NORM_MINMAX).astype(np.uint8)
+            flow_colored = cv2.applyColorMap(flow_norm, cv2.COLORMAP_JET)
+            cv2.imwrite(
+                f"outputs/noise_flow_magnitude_{i:03d}.png",
+                flow_colored
+            )
+        
         print(f"   Frame {i}: Rendered")
     
-    print(f"\n✓ Saved to: outputs/")
+    print(f"\n✓ Saved RGB and flow to: outputs/")
     print()
 
 
@@ -221,17 +276,25 @@ def example_stereo_events(config_path: str, json_path: str):
         
         results = composed.render(position, orientation_rpy)
         
-        # Save concatenated stereo pair
+        # Save stereo RGB pair
         if 'rgb_left' in results and 'rgb_right' in results:
-            concatenated = np.hstack([results['rgb_left'], results['rgb_right']])
+            rgb_concat = np.hstack([results['rgb_left'], results['rgb_right']])
             cv2.imwrite(
-                f"outputs/stereo_events_frame_{i:03d}.png",
-                concatenated
+                f"outputs/stereo_events_rgb_{i:03d}.png",
+                rgb_concat
+            )
+        
+        # Save stereo events pair
+        if 'events_left' in results and 'events_right' in results:
+            events_concat = np.hstack([results['events_left'], results['events_right']])
+            cv2.imwrite(
+                f"outputs/stereo_events_events_{i:03d}.png",
+                events_concat
             )
         
         print(f"   Frame {i}: Rendered")
     
-    print(f"\n✓ Saved to: outputs/")
+    print(f"\n✓ Saved RGB and events to: outputs/")
     print()
 
 
@@ -243,18 +306,21 @@ def example_custom_pipeline(config_path: str, json_path: str):
     
     renderer = SplatRenderer(config_path, json_path)
     
-    # Create a 3-stage pipeline: noise -> events -> flow
-    noise_module = NoiseModule(noise_sigma=10)
-    event_module = EventCameraModule(threshold=12, stereo=False)
-    flow_module = FlowModule()
+    # Create a 3-stage pipeline: noise -> blur -> edge detection
+    noise_module = NoiseModule(noise_sigma=20)
+    blur_module = BlurModule(kernel_size=11, sigma=2.0)
+    edge_module = EdgeModule(low_threshold=50, high_threshold=150)
     
-    # Compose all three using + operator
-    composed = renderer + noise_module + event_module + flow_module
+    # Compose all modules using + operator
+    # Pipeline: add noise, blur it to reduce noise, then detect edges
+    composed = renderer + noise_module + blur_module + edge_module
     
     print(f"\nComposed module: {composed}")
-    print(f"Pipeline: renderer -> noise -> events -> flow")
+    print(f"Pipeline: renderer -> noise -> blur -> edges")
     
-    print("\nRendering 3 frames with complex pipeline...")
+    print("\nRendering 3 frames with multi-stage pipeline...")
+    import os
+    os.makedirs("outputs", exist_ok=True)
     
     for i in range(3):
         position = np.array([0.0, 0.0, 0.0])  # At origin
@@ -262,9 +328,30 @@ def example_custom_pipeline(config_path: str, json_path: str):
         
         results = composed.render(position, orientation_rpy)
         
+        # Save final RGB (noisy + blurred)
+        cv2.imwrite(
+            f"outputs/pipeline_rgb_{i:03d}.png",
+            results['rgb']
+        )
+        
+        # Save edges
+        if 'edges' in results:
+            cv2.imwrite(
+                f"outputs/pipeline_edges_{i:03d}.png",
+                results['edges']
+            )
+        
+        # Save comparison if original available
+        if 'rgb_original' in results:
+            comparison = np.hstack([results['rgb_original'], results['rgb']])
+            cv2.imwrite(
+                f"outputs/pipeline_comparison_{i:03d}.png",
+                comparison
+            )
+        
         print(f"   Frame {i}: {len(results.keys())} outputs from pipeline")
     
-    print("\n✓ Pipeline executed successfully!")
+    print("\n✓ Saved RGB, edges, and comparisons to: outputs/")
     print()
 
 
@@ -281,7 +368,7 @@ def main():
     print("Select an example:")
     print("1. Noise + Flow (optical flow on noisy images)")
     print("2. Stereo + Events (stereo event cameras)")
-    print("3. Custom Pipeline (noise -> events -> flow)")
+    print("3. Custom Pipeline (noise -> blur -> edges)")
     print("4. Run all examples")
     print()
     
