@@ -287,7 +287,7 @@ pipeline = renderer + module1 + module2 + module3
 ```
 VizFlyt2/
 ├── README.md
-├── QUICK_REFERENCE.md           # Quick API reference
+├── QUICK_REFERENCE.md           # Quick reference
 ├── COMPOSITION_GUIDE.md         # Detailed composition guide
 └── perception/
     ├── modules.py               # Base classes + decorator factories
@@ -362,7 +362,7 @@ x y z roll pitch yaw
 
 ## 📖 Documentation
 
-- **[QUICK_REFERENCE.md](QUICK_REFERENCE.md)** - Quick API reference and code snippets
+- **[QUICK_REFERENCE.md](QUICK_REFERENCE.md)** - Quick reference and code snippets
 - **[COMPOSITION_GUIDE.md](COMPOSITION_GUIDE.md)** - Detailed guide to module composition
 - **[perception/EXAMPLES.md](perception/EXAMPLES.md)** - Guide to example scripts
 
@@ -411,62 +411,6 @@ Contributions are welcome! Please feel free to submit issues or pull requests.
 
 For questions or support, please open an issue on GitHub or contact the maintainers.
 
-### Custom Perception Module
-
-```python
-class MyCustomModule:
-    def __init__(self, model_path):
-        # Initialize your module
-        pass
-    
-    def render(self, position, orientation_rpy):
-        # Your rendering logic
-        return {
-            'output_key': np.array(...),
-            'another_output': np.array(...)
-        }
-
-# Register module
-api.register_custom_module("my_module", MyCustomModule("model.pth"))
-
-# Render with custom module
-results = api.render(position, orientation_rpy)
-custom_output = results['my_module_output_key']
-```
-
-### Using Hooks
-
-```python
-# Pre-render hook for logging
-def log_pose(position, orientation_rpy):
-    print(f"Rendering at {position}")
-
-# Post-render hook for analysis
-def analyze_output(results):
-    depth = results['depth']
-    print(f"Depth range: [{depth.min():.2f}, {depth.max():.2f}]")
-
-api.add_pre_render_hook(log_pose)
-api.add_post_render_hook(analyze_output)
-```
-
-### Selective Modality Rendering
-
-```python
-# Only render specific modalities to save computation
-results = api.render(position, orientation_rpy, modalities=['rgb'])
-```
-
-## 📊 Performance
-
-Typical rendering times (RTX 3090):
-- Mono rendering: ~20-40ms per frame
-- Stereo rendering: ~40-80ms per frame
-
-Tips for optimization:
-- Use batch rendering for trajectories
-- Reduce resolution for faster rendering
-- Use selective modality rendering when possible
 
 ## 🐛 Troubleshooting
 
