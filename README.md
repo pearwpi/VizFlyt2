@@ -1,27 +1,48 @@
 # VizFlyt2
 
-A flexible perception system for rendering photorealistic synthetic sensor data using Gaussian Splatting. VizFlyt2 provides mono and stereo camera rendering with support for custom perception modules through an intuitive composition system.
+A flexible perception, dynamics, and planning system for rendering photorealistic synthetic sensor data using Gaussian Splatting. VizFlyt2 provides mono and stereo camera rendering with support for custom perception modules, simple point-mass dynamics, trajectory planning, and vision-based obstacle avoidance.
 
 ## 🌟 Features
 
+### Perception
 - **High-Fidelity Rendering**: Photorealistic RGB and depth rendering using Gaussian Splatting (via Nerfstudio)
 - **Stereo Camera Support**: Configurable stereo baseline for binocular vision
 - **Module Composition**: Compose perception modules using the `+` operator to create complex pipelines
 - **Decorator Factories**: Create custom vision modules from simple functions
 - **Multiple Modalities**: Mono, stereo, optical flow, event cameras, and custom modules
 - **Batch Processing**: Efficient rendering of entire trajectories
+
+### Dynamics
+- **Point-Mass Model**: Simple dynamics with position, velocity, orientation, angular velocity
+- **Two Control Modes**: Velocity (kinematic) or acceleration (optional gravity)  
+- **105 Lines of Code**: No mass, inertia, forces, or torques - just the basics
+- **Easy Integration**: Couples with planning for trajectory execution
 - **NED Frame Support**: Uses North-East-Down coordinate system for aerospace applications
+
+### Planning
+- **Trajectory Planning**: Five primitives (line, circle, figure-8, spiral, waypoints)
+- **Vision-Based Planning**: Reactive obstacle avoidance using potential fields
+- **Unified Interface**: All planners implement `compute_action(**kwargs) → velocity`
+- **Runtime Switching**: Easy to switch between planning strategies
+- **Extensible**: Support for RL agents, hybrid planners, custom strategies
+- **Depth Image Processing**: Automatic free space detection and navigation
+- **Simple API**: Use primitives directly or via planner classes
+- **Direct Integration**: Works seamlessly with dynamics and perception modules
+- **~1040 Lines of Code**: Lightweight, unified, and extensible architecture
 
 ## 📋 Table of Contents
 
 - [Installation](#installation)
 - [Quick Start](#quick-start)
+- [Dynamics](#dynamics)
+- [Planning](#planning)
 - [Examples](#examples)
 - [Module Composition](#module-composition)
 - [Custom Modules](#custom-modules)
 - [File Structure](#file-structure)
 - [Configuration](#configuration)
 - [Coordinate Systems](#coordinate-systems)
+- [Documentation](#documentation)
 - [Documentation](#documentation)
 
 ## 🚀 Installation
@@ -53,6 +74,41 @@ pip install nerfstudio
    - Prepare camera settings JSON file
 
 ## 🎯 Quick Start
+
+### Complete Integration (Perception + Planning + Dynamics)
+
+```python
+from planning import PotentialFieldPlanner
+from dynamics import PointMassDynamics
+import numpy as np
+
+# Setup planner (depth → velocity)
+planner = PotentialFieldPlanner(step_size=2.0)
+
+# Setup dynamics
+dynamics = PointMassDynamics(
+    initial_state={
+        'position': np.array([0., 0., -50.]),
+        'velocity': np.array([0., 0., 0.]),
+        'orientation_rpy': np.array([0., 0., 0.])
+    },
+    control_mode='velocity'
+)
+
+# Main loop
+for step in range(1000):
+    # 1. Get depth from camera/renderer
+    depth = get_depth_image()  # From SplatRenderer or camera
+    
+    # 2. Compute velocity command
+    action = planner.compute_action(depth_image=depth)
+    
+    # 3. Execute with dynamics
+    dynamics.step({'velocity': action['velocity']}, dt=0.1)
+    planner.step()
+```
+
+See [`planning/example_integration.py`](planning/example_integration.py) for complete working example.
 
 ### Mono Camera Rendering
 
@@ -127,7 +183,90 @@ pipeline = renderer + edge_detector
 results = pipeline.render(position, orientation_rpy)
 # Access: results['rgb'], results['depth'], results['edges']
 ```
+
+## 🛩️ Dynamics
+
+Super simple point-mass dynamics for trajectory generation:
+
+```python
+import numpy as np
+from dynamics import PointMassDynamics
+
+# Velocity mode - direct control
+dynamics = PointMassDynamics(
+    initial_state={
+        'position': np.array([0., 0., -50.]),
+        'velocity': np.array([10., 0., 0.]),
+        'orientation_rpy': np.array([0., 0., 0.])
+    },
+    control_mode='velocity'
+)
+
+# Simulation loop
+dt = 0.01
+for i in range(1000):
+    dynamics.step({'velocity': np.array([10., 5., 0.])}, dt)
+    position, orientation = dynamics.get_render_params()
 ```
+
+**Two modes:**
+- **`velocity`**: Set velocity directly (kinematic, no physics)
+- **`acceleration`**: Set acceleration (optional gravity)
+
+See [`dynamics/README.md`](dynamics/README.md) for examples.
+
+## 🛤️ Planning
+
+## 🛤️ Planning
+
+All planners use a unified interface: `compute_action(**kwargs) → {'velocity': ...}`
+
+### Reactive Planning (Vision-Based)
+
+```python
+from planning import PotentialFieldPlanner
+
+planner = PotentialFieldPlanner(step_size=2.0, verbose=False)
+
+for step in range(1000):
+    depth = get_depth_image()
+    action = planner.compute_action(depth_image=depth)
+    
+    dynamics.step({'velocity': action['velocity']}, dt=0.1)
+    planner.step()
+```
+
+### Trajectory Planning
+
+```python
+from planning import TrajectoryPlanner
+import numpy as np
+
+planner = TrajectoryPlanner(dt=0.01)
+planner.plan_circle(np.array([0., 0., -50.]), radius=20., duration=10.)
+
+planner.reset()
+while not planner.is_complete():
+    action = planner.compute_action()
+    dynamics.step({'velocity': action['velocity']}, dt=0.01)
+    planner.step()
+    planner.current_index += 1
+```
+
+**Primitives**: line, circle, figure-8, spiral, waypoints
+
+### Custom Planners (e.g., RL Agents)
+
+```python
+from planning import BasePlanner
+
+class RLPlanner(BasePlanner):
+    def compute_action(self, observation=None, **kwargs):
+        action = self.model.predict(observation)
+        return {'velocity': action[:3]}
+```
+
+See [`planning/README.md`](planning/README.md) for details.
 
 ## 📚 Examples
 
@@ -289,6 +428,21 @@ VizFlyt2/
 ├── README.md
 ├── QUICK_REFERENCE.md           # Quick reference
 ├── COMPOSITION_GUIDE.md         # Detailed composition guide
+├── dynamics/                     # Dynamics models
+│   ├── README.md                # Dynamics documentation
+│   ├── __init__.py
+│   ├── base.py                  # Base dynamics class
+│   ├── point_mass.py            # Point-mass model (100 lines)
+│   ├── utils.py                 # Utilities
+│   └── example_simple.py        # Example simulation
+├── planning/                     # Trajectory planning
+│   ├── README.md                # Planning documentation
+│   ├── __init__.py
+│   ├── primitives.py            # Trajectory primitives
+│   ├── trajectory.py            # TrajectoryPlanner class
+│   ├── planner.py               # Vision-based obstacle avoidance
+│   ├── example_planning.py      # Trajectory examples
+│   └── example_vision_planning.py  # Vision-based examples
 └── perception/
     ├── modules.py               # Base classes + decorator factories
     ├── stereo_camera.py         # Stereo camera implementation
@@ -365,6 +519,8 @@ x y z roll pitch yaw
 - **[QUICK_REFERENCE.md](QUICK_REFERENCE.md)** - Quick reference and code snippets
 - **[COMPOSITION_GUIDE.md](COMPOSITION_GUIDE.md)** - Detailed guide to module composition
 - **[perception/EXAMPLES.md](perception/EXAMPLES.md)** - Guide to example scripts
+- **[dynamics/README.md](dynamics/README.md)** - Dynamics models documentation
+- **[planning/README.md](planning/README.md)** - Trajectory planning documentation
 
 ## 📊 Performance
 
