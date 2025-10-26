@@ -1,0 +1,22 @@
+# Ignore all files in a directory
+splats
+
+# Ignore specific file types
+*.log
+*.tmp
+*.swp
+
+# Ignore system files
+.DS_Store
+Thumbs.db
+
+# Ignore compiled Python files
+__pycache__/
+*.pyc
+*.pyo
+*.blend
+
+# Ignore environment files
+.env
+venv/
+*.venv
