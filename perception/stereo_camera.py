@@ -1,5 +1,9 @@
-from .splat_render import SplatRenderer
-from .modules import BaseModule, VisionModule, ComposedBase
+try:
+    from .splat_render import SplatRenderer
+    from .modules import BaseModule, VisionModule, ComposedBase
+except ImportError:
+    from splat_render import SplatRenderer
+    from modules import BaseModule, VisionModule, ComposedBase
 import numpy as np
 import os
 import cv2

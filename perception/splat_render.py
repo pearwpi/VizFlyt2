@@ -17,7 +17,10 @@ from nerfstudio.cameras.cameras import CameraType
 from scipy.spatial.transform import Rotation as R
 from transforms3d.euler import mat2euler
 
-from .modules import BaseModule
+try:
+    from .modules import BaseModule
+except ImportError:
+    from modules import BaseModule
 
 
 class SplatRenderer(BaseModule):

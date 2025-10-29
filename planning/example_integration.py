@@ -35,9 +35,13 @@ Example renderer paths:
 
 import sys
 from pathlib import Path
-sys.path.insert(0, str(Path(__file__).parent.parent))
+
+# Add parent directory to path so imports work from planning/ directory
+repo_root = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(repo_root))
 
 import numpy as np
+import cv2
 from planning import PotentialFieldPlanner
 from dynamics import PointMassDynamics
 
@@ -70,7 +74,7 @@ print("\n1. Setting up components...")
 
 # Initial state
 initial_state = {
-    'position': np.array([0., 0., -50.]),      # Start at origin, 50m altitude
+    'position': np.array([0., 0., 0]),      # Start at origin
     'velocity': np.array([0., 0., 0.]),         # Start stationary
     'orientation_rpy': np.array([0., 0., 0.])   # Level orientation
 }
@@ -84,9 +88,9 @@ print(f"   ✓ Dynamics initialized: {dynamics.control_mode} mode")
 
 # Planning (reactive obstacle avoidance)
 planner = PotentialFieldPlanner(
-    step_size=2.0,          # 2 m/s forward speed
-    safety_radius=1.5,      # Aggressive avoidance
-    threshold=60,           # Obstacle detection threshold
+    step_size=0.05,          # 5 cm/s forward speed
+    safety_radius=0.5,      # Aggressive avoidance
+    threshold=40,           # Obstacle detection threshold
     verbose=False           # Quiet mode
 )
 print(f"   ✓ Planner initialized: step_size={planner.step_size} m/s")
@@ -148,12 +152,13 @@ def generate_synthetic_depth(position, step):
 print("\n2. Running simulation loop...")
 print("   (Perception → Planning → Dynamics)\n")
 
-num_steps = 100
+num_steps = 250
 dt = 0.1
 
 # Storage for logging
 trajectory = []
 depth_images = []  # Store depth images for visualization
+rgb_images = []    # Store RGB images for visualization
 
 for step in range(num_steps):
     # -----------------------------------------------------------------------
@@ -165,20 +170,32 @@ for step in range(num_steps):
     
     if renderer is not None:
         # Real renderer (if available and initialized)
+        print(f"   Step {step:3d}: Rendering depth and RGB")
         position_render, orientation_render = dynamics.get_render_params()
         result = renderer.render(position_render, orientation_render)
-        depth = result['depth']
+        depth = result['depth_raw']
+        rgb = result['rgb']
     else:
-        # Synthetic depth
+        # Synthetic depth and RGB
+        print(f"   Step {step:3d}: Generating synthetic depth and RGB")
         depth = generate_synthetic_depth(position, step)
+        # Create synthetic RGB (simple gradient based on depth)
+        rgb = np.stack([depth, depth*0.8, depth*0.6], axis=-1).astype(np.uint8)
 
+    # Handle depth image shape - squeeze if (h, w, 1)
+    if len(depth.shape) == 3 and depth.shape[2] == 1:
+        depth = depth.squeeze(axis=2)
     
     depth_images.append(depth.copy())
+    rgb_images.append(rgb.copy())
     
     # -----------------------------------------------------------------------
     # 2. PLANNING: Compute velocity command from depth
     # -----------------------------------------------------------------------
-    action = planner.compute_action(depth_image=depth)
+
+    # depth needs to be relative (not metric) for planner
+    depth_rel = 255 - np.clip(depth / np.max(depth) * 255, 0, 255).astype(np.uint8)
+    action = planner.compute_action(depth_image=depth_rel)
     velocity_cmd = action['velocity']
     
     # -----------------------------------------------------------------------
@@ -316,27 +333,41 @@ try:
     frames_dir.mkdir(exist_ok=True)
     
     for i in sampled_frames:
-        fig = plt.figure(figsize=(14, 6))
+        fig = plt.figure(figsize=(18, 5))
         
-        # Left: Depth image
-        ax1 = plt.subplot(1, 2, 1)
-        im = ax1.imshow(depth_images[i], cmap='gray', vmin=0, vmax=255)
-        ax1.set_title(f'Depth Image - Step {i}\n{"OBSTACLE DETECTED" if trajectory[i]["has_obstacle"] else "Clear"}',
+        # Left: RGB image
+        ax1 = plt.subplot(1, 3, 1)
+        if len(rgb_images[i].shape) == 3:
+            # RGB image
+            ax1.imshow(cv2.cvtColor(rgb_images[i], cv2.COLOR_BGR2RGB))
+        else:
+            # Grayscale
+            ax1.imshow(rgb_images[i], cmap='gray')
+        ax1.set_title(f'RGB - Step {i}', fontweight='bold')
+        ax1.axis('off')
+        
+        # Middle: Depth image
+        ax2 = plt.subplot(1, 3, 2)
+        depth_display = depth_images[i]
+        # Auto-scale depth for better visualization
+        depth_min, depth_max = np.min(depth_display), np.max(depth_display)
+        im = ax2.imshow(depth_display, cmap='gray', vmin=depth_min, vmax=depth_max)
+        ax2.set_title(f'Depth - {"OBSTACLE" if trajectory[i]["has_obstacle"] else "Clear"}',
                      color='red' if trajectory[i]["has_obstacle"] else 'green',
                      fontweight='bold')
-        ax1.axis('off')
-        plt.colorbar(im, ax=ax1, label='Depth Value')
+        ax2.axis('off')
+        plt.colorbar(im, ax=ax2, label='Depth Value', fraction=0.046, pad=0.04)
         
         # Add threshold line info
-        threshold_text = f"Threshold: {planner.threshold}\nMax depth: {np.max(depth_images[i])}"
-        ax1.text(10, 30, threshold_text, color='yellow', fontsize=10,
+        threshold_text = f"Threshold: {planner.threshold}\nMax: {np.max(depth_images[i])}"
+        ax2.text(10, 30, threshold_text, color='yellow', fontsize=9,
                 bbox=dict(boxstyle='round', facecolor='black', alpha=0.7))
         
         # Right: Trajectory plot
-        ax2 = plt.subplot(1, 2, 2)
+        ax3 = plt.subplot(1, 3, 3)
         
         # Plot full trajectory in gray
-        ax2.plot(positions[:, 0], positions[:, 1], 'gray', alpha=0.3, linewidth=1, label='Full path')
+        ax3.plot(positions[:, 0], positions[:, 1], 'gray', alpha=0.3, linewidth=1, label='Full path')
         
         # Plot past trajectory
         if i > 0:
@@ -345,34 +376,34 @@ try:
             
             for j in range(len(past_positions)-1):
                 color = 'red' if past_obstacle[j] else 'blue'
-                ax2.plot(past_positions[j:j+2, 0], past_positions[j:j+2, 1], 
+                ax3.plot(past_positions[j:j+2, 0], past_positions[j:j+2, 1], 
                         color=color, linewidth=2, alpha=0.7)
         
         # Current position
         curr_pos = positions[i]
-        ax2.plot(curr_pos[0], curr_pos[1], 'go', markersize=15, 
+        ax3.plot(curr_pos[0], curr_pos[1], 'go', markersize=15, 
                 label=f'Current ({curr_pos[0]:.1f}, {curr_pos[1]:.1f})')
         
         # Velocity vector
         vel_cmd = trajectory[i]['velocity_cmd']
-        scale = 5.0
-        ax2.arrow(curr_pos[0], curr_pos[1], 
+        scale = 2.0
+        ax3.arrow(curr_pos[0], curr_pos[1], 
                  vel_cmd[0]*scale, vel_cmd[1]*scale,
-                 head_width=1.0, head_length=0.5, fc='orange', ec='orange',
+                 head_width=.1, head_length=0.1, fc='orange', ec='orange',
                  linewidth=2, label='Velocity cmd')
         
-        ax2.set_xlabel('X - North (m)')
-        ax2.set_ylabel('Y - East (m)')
-        ax2.set_title(f'Trajectory - Step {i}/{len(trajectory)-1}')
-        ax2.grid(True, alpha=0.3)
-        ax2.legend(loc='upper right')
-        ax2.axis('equal')
+        ax3.set_xlabel('X - North (m)')
+        ax3.set_ylabel('Y - East (m)')
+        ax3.set_title(f'Trajectory - Step {i}/{len(trajectory)-1}')
+        ax3.grid(True, alpha=0.3)
+        ax3.legend(loc='upper right')
+        ax3.axis('equal')
         
         # Add velocity info
         info_text = f"Velocity: [{vel_cmd[0]:.2f}, {vel_cmd[1]:.2f}, {vel_cmd[2]:.2f}] m/s\n"
         info_text += f"Speed: {np.linalg.norm(vel_cmd):.2f} m/s\n"
         info_text += f"Altitude: {-curr_pos[2]:.1f} m"
-        ax2.text(0.02, 0.98, info_text, transform=ax2.transAxes,
+        ax3.text(0.02, 0.98, info_text, transform=ax3.transAxes,
                 verticalalignment='top',
                 bbox=dict(boxstyle='round', facecolor='wheat', alpha=0.8))
         
@@ -392,11 +423,40 @@ try:
     print("\n6. Creating animation...")
     
     try:
-        import imageio
+        import imageio.v2 as imageio
         
         # Load all frames
         frame_files = sorted(frames_dir.glob('frame_*.png'))
         frames = [imageio.imread(f) for f in frame_files]
+        
+        # Ensure all frames have consistent shape (normalize to RGB with same dimensions)
+        if len(frames) > 0:
+            # Get target shape from first frame
+            first_frame = frames[0]
+            if len(first_frame.shape) == 3 and first_frame.shape[2] == 4:
+                first_frame = first_frame[:, :, :3]
+            elif len(first_frame.shape) == 2:
+                first_frame = np.stack([first_frame]*3, axis=-1)
+            target_shape = first_frame.shape
+            
+            normalized_frames = [first_frame]
+            for frame in frames[1:]:
+                # Convert RGBA to RGB if needed
+                if len(frame.shape) == 3 and frame.shape[2] == 4:
+                    frame = frame[:, :, :3]
+                # Ensure RGB (some might be grayscale)
+                elif len(frame.shape) == 2:
+                    frame = np.stack([frame]*3, axis=-1)
+                
+                # Resize if dimensions don't match
+                if frame.shape != target_shape:
+                    frame = cv2.resize(frame, (target_shape[1], target_shape[0]))
+                    # Ensure it's 3-channel after resize
+                    if len(frame.shape) == 2:
+                        frame = np.stack([frame]*3, axis=-1)
+                
+                normalized_frames.append(frame)
+            frames = normalized_frames
         
         # Save as GIF
         gif_path = output_dir / 'integration_animation.gif'

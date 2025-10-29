@@ -1,5 +1,6 @@
 # Ignore all files in a directory
 splats
+outputs
 
 # Ignore specific file types
 *.log

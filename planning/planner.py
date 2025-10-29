@@ -520,6 +520,10 @@ class PotentialFieldPlanner(ReactiveVisualPlanner):
         if depth_image is None:
             raise ValueError("PotentialFieldPlanner requires depth_image")
         
+        # reduce 1 channel to 2d array
+        if len(depth_image.shape) == 3 and depth_image.shape[2] == 1:
+            depth_image = depth_image[:, :, 0]
+        
         # Threshold the depth image
         obstacles = thresholding(depth_image, self.threshold)
         
@@ -554,7 +558,7 @@ class PotentialFieldPlanner(ReactiveVisualPlanner):
         # Convert to velocity commands
         forward_vel = self.step_size
         lateral_vel = 8.5 * self.step_size * self.safety_radius * total_force[0]
-        vertical_vel = self.z_step_size * self.safety_radius * total_force[2]
+        vertical_vel = -1 * self.z_step_size * self.safety_radius * total_force[2]
         
         velocity = np.array([forward_vel, lateral_vel, vertical_vel])
         
