@@ -125,6 +125,17 @@ class TrajectoryPlanner(BaseTrajectoryPlanner):
             'time': self.trajectory['time'][idx]
         }
     
+    def get_duration(self) -> float:
+        """
+        Get total duration of the planned trajectory.
+        
+        Returns:
+            Duration in seconds, or 0.0 if no trajectory is planned
+        """
+        if self.trajectory is None or len(self.trajectory['time']) == 0:
+            return 0.0
+        return self.trajectory['time'][-1]
+    
     # Planning methods
     
     def plan_line(self, start: np.ndarray, end: np.ndarray, duration: float):
@@ -171,10 +182,15 @@ class TrajectoryPlanner(BaseTrajectoryPlanner):
     def plan_waypoints(
         self,
         waypoints: np.ndarray,
-        speeds: Optional[np.ndarray] = None,
-        stop_time: float = 0.0
+        speeds: Optional[np.ndarray] = None
     ):
-        """Plan trajectory through waypoints."""
-        self.trajectory = waypoint_trajectory(waypoints, self.dt, speeds, stop_time)
+        """
+        Plan trajectory through waypoints.
+        
+        Args:
+            waypoints: List/array of waypoint positions [x, y, z]
+            speeds: Speed for each segment (m/s), defaults to 10 m/s for all
+        """
+        self.trajectory = waypoint_trajectory(waypoints, speeds, self.dt)
         self.current_index = 0
         return self

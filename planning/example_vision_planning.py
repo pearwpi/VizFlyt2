@@ -6,6 +6,10 @@ The planner uses potential fields to navigate around obstacles.
 """
 
 import numpy as np
+from pathlib import Path
+import sys
+
+sys.path.insert(0, str(Path(__file__).parent.parent))
 from planning import PotentialFieldPlanner
 
 # Example 1: Basic usage with synthetic depth image
@@ -62,15 +66,22 @@ try:
     from dynamics import PointMassDynamics
     
     # Create dynamics model
+    initial_state = {
+        'position': np.array([0., 0., -50.]),
+        'velocity': np.array([0., 0., 0.]),
+        'orientation_rpy': np.array([0., 0., 0.])
+    }
+    
     dynamics = PointMassDynamics(
-        control_mode='velocity',
-        dt=0.1
+        initial_state=initial_state,
+        control_mode='velocity'
     )
     
     # Create planner
     planner = PotentialFieldPlanner(step_size=0.5)
     
     # Simulation loop
+    dt = 0.1
     print("\nSimulating vision-based navigation:")
     for step in range(10):
         # Get current position
@@ -85,8 +96,7 @@ try:
         velocity, _ = planner.plan(depth, save_visualization=False)
         
         # Send to dynamics
-        dynamics.set_control(velocity)
-        dynamics.step()
+        dynamics.step({'velocity': velocity}, dt)
         
         print(f"Step {step}: pos=[{pos[0]:.2f}, {pos[1]:.2f}, {pos[2]:.2f}], "
               f"vel=[{velocity[0]:.2f}, {velocity[1]:.2f}, {velocity[2]:.2f}]")

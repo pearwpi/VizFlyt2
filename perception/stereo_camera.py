@@ -1,5 +1,5 @@
-from splat_render import SplatRenderer
-from modules import BaseModule, VisionModule, ComposedBase
+from .splat_render import SplatRenderer
+from .modules import BaseModule, VisionModule, ComposedBase
 import numpy as np
 import os
 import cv2

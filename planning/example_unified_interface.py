@@ -6,6 +6,10 @@ This allows flexible, composable planning strategies.
 """
 
 import numpy as np
+from pathlib import Path
+import sys
+
+sys.path.insert(0, str(Path(__file__).parent.parent))
 from planning import TrajectoryPlanner, PotentialFieldPlanner, BasePlanner
 
 print("=" * 70)
