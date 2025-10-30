@@ -18,7 +18,7 @@ setup(
     long_description=long_description,
     long_description_content_type="text/markdown",
     url="https://github.com/pearwpi/VizFlyt2",
-    packages=find_packages(include=['perception', 'dynamics', 'planning']),
+    packages=find_packages(include=['vizflyt2', 'vizflyt2.*']),
     classifiers=[
         "Development Status :: 3 - Alpha",
         "Intended Audience :: Science/Research",
