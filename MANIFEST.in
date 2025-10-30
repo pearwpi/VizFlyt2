@@ -1,0 +1,8 @@
+include README.md
+include LICENSE
+recursive-include perception *.md
+recursive-include dynamics *.md
+recursive-include planning *.md
+recursive-include planning *.py
+recursive-include dynamics *.py
+recursive-include perception *.py

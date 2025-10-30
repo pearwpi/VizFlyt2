@@ -63,8 +63,18 @@ print("=" * 70)
 
 # Renderer configuration - update these paths to match your setup
 # These are the same paths used in perception examples
-SPLAT_CONFIG_PATH = "../splats/p2phaseb_colmap_splat/p2phaseb_colmap/splatfacto/2025-10-07_134702/config.yml"
-CAMERA_JSON_PATH = "../splats/cam_settings.json"
+
+# Boxes
+# SPLAT_CONFIG_PATH = "../splats/p2phaseb_colmap_splat/p2phaseb_colmap/splatfacto/2025-10-07_134702/config.yml"
+# CAMERA_JSON_PATH = "../splats/boxes.json"
+
+# Racing
+# SPLAT_CONFIG_PATH = "../splats/washburn-env6-itr0-1fps/washburn-env6-itr0-1fps_nf_format/splatfacto/2025-03-06_201843/config.yml"
+# CAMERA_JSON_PATH = "../splats/racing.json"
+
+# Science
+SPLAT_CONFIG_PATH = "../splats/saranga_rebuttal_colmap_splat/saranga_rebuttal_colmap/splatfacto/2025-10-26_191918/config.yml"
+CAMERA_JSON_PATH = "../splats/science.json"
 
 # ============================================================================
 # Setup
@@ -88,9 +98,10 @@ print(f"   ✓ Dynamics initialized: {dynamics.control_mode} mode")
 
 # Planning (reactive obstacle avoidance)
 planner = PotentialFieldPlanner(
-    step_size=0.05,          # 5 cm/s forward speed
-    safety_radius=0.5,      # Aggressive avoidance
-    threshold=40,           # Obstacle detection threshold
+    step_size=0.02,          # 5 cm/s forward speed
+    safety_radius=0.3,      #  
+    threshold=240,           # Obstacle detection threshold
+    neighborhood_size=(60, 60),  # Neighborhood size for potential field (px)
     verbose=False           # Quiet mode
 )
 print(f"   ✓ Planner initialized: step_size={planner.step_size} m/s")
@@ -152,13 +163,14 @@ def generate_synthetic_depth(position, step):
 print("\n2. Running simulation loop...")
 print("   (Perception → Planning → Dynamics)\n")
 
-num_steps = 250
+num_steps = 750
 dt = 0.1
 
 # Storage for logging
 trajectory = []
 depth_images = []  # Store depth images for visualization
 rgb_images = []    # Store RGB images for visualization
+debug_images = []  # Store potential field debug visualizations
 
 for step in range(num_steps):
     # -----------------------------------------------------------------------
@@ -194,9 +206,13 @@ for step in range(num_steps):
     # -----------------------------------------------------------------------
 
     # depth needs to be relative (not metric) for planner
-    depth_rel = 255 - np.clip(depth / np.max(depth) * 255, 0, 255).astype(np.uint8)
-    action = planner.compute_action(depth_image=depth_rel)
+    depth_rel = np.clip((np.max(depth) - depth) / np.max(depth) * 255, 0, 255).astype(np.uint8)
+    action = planner.compute_action(depth_image=depth_rel, save_visualization=True)
     velocity_cmd = action['velocity']
+    
+    # Store debug visualization if available
+    debug_viz = action.get('info', {}).get('visualization', None)
+    debug_images.append(debug_viz)
     
     # -----------------------------------------------------------------------
     # 3. DYNAMICS: Execute command
@@ -333,10 +349,10 @@ try:
     frames_dir.mkdir(exist_ok=True)
     
     for i in sampled_frames:
-        fig = plt.figure(figsize=(18, 5))
+        fig = plt.figure(figsize=(24, 5))
         
-        # Left: RGB image
-        ax1 = plt.subplot(1, 3, 1)
+        # Panel 1: RGB image
+        ax1 = plt.subplot(1, 4, 1)
         if len(rgb_images[i].shape) == 3:
             # RGB image
             ax1.imshow(cv2.cvtColor(rgb_images[i], cv2.COLOR_BGR2RGB))
@@ -346,8 +362,8 @@ try:
         ax1.set_title(f'RGB - Step {i}', fontweight='bold')
         ax1.axis('off')
         
-        # Middle: Depth image
-        ax2 = plt.subplot(1, 3, 2)
+        # Panel 2: Depth image
+        ax2 = plt.subplot(1, 4, 2)
         depth_display = depth_images[i]
         # Auto-scale depth for better visualization
         depth_min, depth_max = np.min(depth_display), np.max(depth_display)
@@ -356,18 +372,26 @@ try:
                      color='red' if trajectory[i]["has_obstacle"] else 'green',
                      fontweight='bold')
         ax2.axis('off')
-        plt.colorbar(im, ax=ax2, label='Depth Value', fraction=0.046, pad=0.04)
+        plt.colorbar(im, ax=ax2, label='Depth', fraction=0.046, pad=0.04)
         
-        # Add threshold line info
-        threshold_text = f"Threshold: {planner.threshold}\nMax: {np.max(depth_images[i])}"
-        ax2.text(10, 30, threshold_text, color='yellow', fontsize=9,
-                bbox=dict(boxstyle='round', facecolor='black', alpha=0.7))
+        # Panel 3: Potential Field Debug
+        ax3 = plt.subplot(1, 4, 3)
+        if debug_images[i] is not None:
+            # Debug visualization from planner
+            debug_rgb = cv2.cvtColor(debug_images[i], cv2.COLOR_BGR2RGB)
+            ax3.imshow(debug_rgb)
+            ax3.set_title('Potential Field Debug', fontweight='bold')
+        else:
+            # Show depth if no debug available
+            ax3.imshow(depth_display, cmap='gray')
+            ax3.set_title('No Debug Available', fontweight='bold')
+        ax3.axis('off')
         
-        # Right: Trajectory plot
-        ax3 = plt.subplot(1, 3, 3)
+        # Panel 4: Trajectory plot
+        ax4 = plt.subplot(1, 4, 4)
         
         # Plot full trajectory in gray
-        ax3.plot(positions[:, 0], positions[:, 1], 'gray', alpha=0.3, linewidth=1, label='Full path')
+        ax4.plot(positions[:, 0], positions[:, 1], 'gray', alpha=0.3, linewidth=1, label='Full path')
         
         # Plot past trajectory
         if i > 0:
@@ -376,34 +400,34 @@ try:
             
             for j in range(len(past_positions)-1):
                 color = 'red' if past_obstacle[j] else 'blue'
-                ax3.plot(past_positions[j:j+2, 0], past_positions[j:j+2, 1], 
+                ax4.plot(past_positions[j:j+2, 0], past_positions[j:j+2, 1], 
                         color=color, linewidth=2, alpha=0.7)
         
         # Current position
         curr_pos = positions[i]
-        ax3.plot(curr_pos[0], curr_pos[1], 'go', markersize=15, 
+        ax4.plot(curr_pos[0], curr_pos[1], 'go', markersize=15, 
                 label=f'Current ({curr_pos[0]:.1f}, {curr_pos[1]:.1f})')
         
         # Velocity vector
         vel_cmd = trajectory[i]['velocity_cmd']
         scale = 2.0
-        ax3.arrow(curr_pos[0], curr_pos[1], 
+        ax4.arrow(curr_pos[0], curr_pos[1], 
                  vel_cmd[0]*scale, vel_cmd[1]*scale,
                  head_width=.1, head_length=0.1, fc='orange', ec='orange',
                  linewidth=2, label='Velocity cmd')
         
-        ax3.set_xlabel('X - North (m)')
-        ax3.set_ylabel('Y - East (m)')
-        ax3.set_title(f'Trajectory - Step {i}/{len(trajectory)-1}')
-        ax3.grid(True, alpha=0.3)
-        ax3.legend(loc='upper right')
-        ax3.axis('equal')
+        ax4.set_xlabel('X - North (m)')
+        ax4.set_ylabel('Y - East (m)')
+        ax4.set_title(f'Trajectory - Step {i}/{len(trajectory)-1}')
+        ax4.grid(True, alpha=0.3)
+        ax4.legend(loc='upper right')
+        ax4.axis('equal')
         
         # Add velocity info
         info_text = f"Velocity: [{vel_cmd[0]:.2f}, {vel_cmd[1]:.2f}, {vel_cmd[2]:.2f}] m/s\n"
         info_text += f"Speed: {np.linalg.norm(vel_cmd):.2f} m/s\n"
         info_text += f"Altitude: {-curr_pos[2]:.1f} m"
-        ax3.text(0.02, 0.98, info_text, transform=ax3.transAxes,
+        ax4.text(0.02, 0.98, info_text, transform=ax4.transAxes,
                 verticalalignment='top',
                 bbox=dict(boxstyle='round', facecolor='wheat', alpha=0.8))
         

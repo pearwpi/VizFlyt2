@@ -55,23 +55,40 @@ A flexible perception, dynamics, and planning system for rendering photorealisti
 
 ### Setup
 
-1. Clone the repository:
+#### Option 1: Install as Package (Recommended)
+
 ```bash
+# Clone the repository
 git clone https://github.com/pearwpi/VizFlyt2.git
 cd VizFlyt2
-```
 
-2. Install dependencies:
-```bash
-pip install numpy opencv-python torch transforms3d scipy
-# Install nerfstudio following their official guide
+# Install in editable mode with core dependencies
+pip install -e .
+
+# Optional: Install visualization dependencies
+pip install -e ".[viz]"
+
+# Optional: Install nerfstudio for perception (follow their guide)
 pip install nerfstudio
 ```
 
-3. Prepare your Gaussian Splatting model:
-   - Train a splatfacto model using Nerfstudio
-   - Note the path to your `config.yml` file
-   - Prepare camera settings JSON file
+#### Option 2: Manual Installation
+
+```bash
+# Clone the repository
+git clone https://github.com/pearwpi/VizFlyt2.git
+cd VizFlyt2
+
+# Install dependencies
+pip install numpy opencv-python torch transforms3d scipy matplotlib
+pip install nerfstudio  # Optional, for perception
+```
+
+#### Prepare Gaussian Splatting Model (Optional, for Perception)
+
+- Train a splatfacto model using Nerfstudio
+- Note the path to your `config.yml` file
+- Prepare camera settings JSON file
 
 ## 🎯 Quick Start
 

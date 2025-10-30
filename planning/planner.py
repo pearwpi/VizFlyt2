@@ -76,12 +76,12 @@ def thresholding(gray, threshold=60):
     Returns:
         Thresholded mask where values below threshold are set to zero
     """
-    print("Before thresholding:", np.min(gray), np.max(gray))
+    # print("Before thresholding:", np.min(gray), np.max(gray))
     
     # Create a mask where values below the threshold are set to zero
     mask = np.where(gray < threshold, 0, gray)
     
-    print("After thresholding:", np.min(mask), np.max(mask))
+    # print("After thresholding:", np.min(mask), np.max(mask))
     return mask
 
 
