@@ -1,14 +1,29 @@
 # Dynamics Module
 
+Physics models for quadrotor simulation - from simple to differentiable.
+
+## Available Models
+
+### 1. **PointMassDynamics** (Simple & Fast)
 Super simple point-mass dynamics for trajectory generation.
 
-## Overview
+- Just basic physics - position, velocity, orientation, angular velocity
+- Two control modes:
+  - **Velocity mode**: Set velocity directly (kinematic, no physics)
+  - **Acceleration mode**: Set acceleration (optionally enable gravity)
+- No mass, no inertia, no forces, no torques
+- NumPy-based, fast for simulation
 
-Just basic physics - position, velocity, orientation, angular velocity. Two control modes:
-- **Velocity mode**: Set velocity directly (kinematic, no physics)
-- **Acceleration mode**: Set acceleration (optionally enable gravity)
+### 2. **DifferentiableQuadrotorDynamics** (Gradient-Based Learning)
+PyTorch-based differentiable dynamics for optimization and learning.
 
-That's it. No mass, no inertia, no forces, no torques. Simple.
+- **Fully differentiable** - gradients flow through all operations
+- **Realistic controller modeling** - delay + EMA filtering
+- **Physics effects** - linear + quadratic drag, gravity
+- **Attitude computation** - from thrust direction + heading
+- Use for: RL training, trajectory optimization, inverse dynamics
+
+See [`DIFFERENTIABLE_README.md`](DIFFERENTIABLE_README.md) for details.
 
 ## Quick Examples
 
