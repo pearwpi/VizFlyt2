@@ -1,4 +1,4 @@
-# VizFlyt2
+# VizFlyt2 (WIP)
 
 A flexible perception, dynamics, and planning system for rendering photorealistic synthetic sensor data using Gaussian Splatting. VizFlyt2 provides mono and stereo camera rendering with support for custom perception modules, simple point-mass dynamics, trajectory planning, and vision-based obstacle avoidance.
 
