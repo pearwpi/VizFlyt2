@@ -204,7 +204,7 @@ Typical rendering times (RTX 3090ti): ~200Hz
 ## Acknowledgments
 
 Built on [Nerfstudio](https://docs.nerf.studio/) for Gaussian Splatting rendering. Developed by Colin Balfour and the WPI PeAR Lab.
-See [https://pear.wpi.edu/research/vizflyt.html](https://github.com/pearwpi/VizFlyt) for the original implementation of the [VizFlyt paper](https://arxiv.org/abs/2503.22876v1)
+See [https://github.com/pearwpi/VizFlyt](https://github.com/pearwpi/VizFlyt) for the original implementation of the [VizFlyt paper](https://arxiv.org/abs/2503.22876v1)
 ```bibtex
 @inproceedings{vizflyt2025,
   author    = {Kushagra Srivastava*, Rutwik Kulkarni*, Manoj Velmurugan*, Nitin J. Sanket},
