@@ -9,6 +9,7 @@ This is currently a WIP project, some features are currently unreleased to the p
 - Metric-based splat generation
 - Integration with Gymnasium for RL training
 - Integration with other common simulators (IsaacSim, Gazebo, MuJoco)
+- ROS2 workflows
 
 
 ## Overview
