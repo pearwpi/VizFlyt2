@@ -1,6 +1,15 @@
-# VizFlyt2
+# VizFlyt2 (WIP)
 
 A modular Python framework for photorealistic synthetic sensor simulation and autonomous flight. VizFlyt2 integrates Gaussian Splatting-based rendering with simple point-mass dynamics and intelligent trajectory planning for vision-based navigation research.
+
+This is currently a WIP project, some features are currently unreleased to the public or still under development. Features to be added soon include:
+- Realistic drone dynamics
+- State estimators and controllers to simulate input delays
+- ESDF generation for collision checks
+- Metric-based splat generation
+- Integration with Gymnasium for RL training
+- Integration with other common simulators (IsaacSim, Gazebo, MuJoco)
+
 
 ## Overview
 
@@ -28,7 +37,7 @@ pip install -e .
 pip install nerfstudio
 ```
 
-**Requirements**: Python 3.8+, CUDA GPU (recommended)
+**Requirements**: Python 3.8+, CUDA GPU (11.8 and 12.6 tested, on a 30-series GPU. Compatibility mostly lies within the nerfstudio package)
 
 ## Quick Start
 
@@ -163,7 +172,7 @@ The repository includes several example scripts demonstrating key features:
 
 ## Configuration
 
-### Camera Settings (JSON)
+### Camera Settings (JSON, nerfstudio format)
 ```json
 {
   "camera": {
@@ -188,14 +197,21 @@ The repository includes several example scripts demonstrating key features:
 
 ## Performance
 
-Typical rendering times (RTX 3090):
-- Mono: ~20-40ms/frame
-- Stereo: ~40-80ms/frame
+Typical rendering times (RTX 3090ti): ~200Hz
 
 ## License
 
-[Add your license information here]
-
 ## Acknowledgments
 
-Built on [Nerfstudio](https://docs.nerf.studio/) for Gaussian Splatting rendering. Developed by WPI PEAR Lab.
+Built on [Nerfstudio](https://docs.nerf.studio/) for Gaussian Splatting rendering. Developed by Colin Balfour and the WPI PeAR Lab.
+See [https://pear.wpi.edu/research/vizflyt.html](https://github.com/pearwpi/VizFlyt) for the original implementation of the [VizFlyt paper](https://arxiv.org/abs/2503.22876v1)
+```bibtex
+@inproceedings{vizflyt2025,
+  author    = {Kushagra Srivastava*, Rutwik Kulkarni*, Manoj Velmurugan*, Nitin J. Sanket},
+  title     = {VizFlyt: An Open-Source Perception-Centric Hardware-In-The-Loop Framework for Aerial Robotics},
+  booktitle = {IEEE International Conference on Robotics and Automation (ICRA)},
+  year      = {2025},
+  note      = {Accepted for publication},
+  url       = {https://github.com/pearwpi/VizFlyt}
+}
+```
