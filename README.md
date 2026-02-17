@@ -1,481 +1,178 @@
 # VizFlyt2 (WIP)
 
-A flexible perception, dynamics, and planning system for rendering photorealistic synthetic sensor data using Gaussian Splatting. VizFlyt2 provides mono and stereo camera rendering with support for custom perception modules, simple point-mass dynamics, trajectory planning, and vision-based obstacle avoidance.
+A modular Python framework for photorealistic synthetic sensor simulation and autonomous flight. VizFlyt2 integrates Gaussian Splatting-based rendering with simple point-mass dynamics and intelligent trajectory planning for vision-based navigation research.
 
-## 🌟 Features
+This is currently a WIP project, some features are currently unreleased to the public or still under development. Features to be added soon include:
+- Realistic drone dynamics
+- State estimators and controllers to simulate input delays
+- ESDF generation for collision checks
+- Metric-based splat generation
+- Integration with Gymnasium for RL training
+- Integration with other common simulators (IsaacSim, Gazebo, MuJoco)
 
-### Perception
-- **High-Fidelity Rendering**: Photorealistic RGB and depth rendering using Gaussian Splatting (via Nerfstudio)
-- **Stereo Camera Support**: Configurable stereo baseline for binocular vision
-- **Module Composition**: Compose perception modules using the `+` operator to create complex pipelines
-- **Decorator Factories**: Create custom vision modules from simple functions
-- **Multiple Modalities**: Mono, stereo, optical flow, event cameras, and custom modules
-- **Batch Processing**: Efficient rendering of entire trajectories
 
-### Dynamics
-- **Point-Mass Model**: Simple dynamics with position, velocity, orientation, angular velocity
-- **Two Control Modes**: Velocity (kinematic) or acceleration (optional gravity)  
-- **105 Lines of Code**: No mass, inertia, forces, or torques - just the basics
-- **Easy Integration**: Couples with planning for trajectory execution
-- **NED Frame Support**: Uses North-East-Down coordinate system for aerospace applications
+## Overview
 
-### Planning
-- **Trajectory Planning**: Five primitives (line, circle, figure-8, spiral, waypoints)
-- **Vision-Based Planning**: Reactive obstacle avoidance using potential fields
-- **Unified Interface**: All planners implement `compute_action(**kwargs) → velocity`
-- **Runtime Switching**: Easy to switch between planning strategies
-- **Extensible**: Support for RL agents, hybrid planners, custom strategies
-- **Depth Image Processing**: Automatic free space detection and navigation
-- **Simple API**: Use primitives directly or via planner classes
-- **Direct Integration**: Works seamlessly with dynamics and perception modules
-- **~1040 Lines of Code**: Lightweight, unified, and extensible architecture
+VizFlyt2 provides three core components that work seamlessly together:
 
-## 📋 Table of Contents
+- **Perception**: Photorealistic RGB and depth rendering using Gaussian Splatting (via Nerfstudio), with support for mono/stereo cameras and composable vision modules
+- **Dynamics**: Lightweight point-mass model (~105 LOC) with velocity and acceleration control modes
+- **Planning**: Trajectory primitives (line, circle, figure-8, spiral, waypoints) and reactive obstacle avoidance using potential fields
 
-- [Installation](#installation)
-- [Quick Start](#quick-start)
-- [Dynamics](#dynamics)
-- [Planning](#planning)
-- [Examples](#examples)
-- [Module Composition](#module-composition)
-- [Custom Modules](#custom-modules)
-- [File Structure](#file-structure)
-- [Configuration](#configuration)
-- [Coordinate Systems](#coordinate-systems)
-- [Documentation](#documentation)
-- [Documentation](#documentation)
+### Key Features
 
-## 🚀 Installation
+- **Modular composition** using `+` operator to chain perception modules
+- **Unified planner interface** enabling easy switching between strategies (including RL agents)
+- **NED coordinate system** for aerospace applications
+- **Extensible architecture** for custom modules and planners
 
-### Prerequisites
-
-- Python 3.8+
-- CUDA-capable GPU (recommended)
-- Nerfstudio
-
-### Setup
-
-#### Option 1: Install as Package (Recommended)
+## Installation
 
 ```bash
-# Clone the repository
 git clone https://github.com/pearwpi/VizFlyt2.git
 cd VizFlyt2
-
-# Install in editable mode with core dependencies
 pip install -e .
 
-# Optional: Install visualization dependencies
-pip install -e ".[viz]"
-
-# Optional: Install nerfstudio for perception (follow their guide)
+# Optional: Install nerfstudio for perception
 pip install nerfstudio
 ```
 
-#### Option 2: Manual Installation
+**Requirements**: Python 3.8+, CUDA GPU (11.8 and 12.6 tested, on a 30-series GPU. Compatibility mostly lies within the nerfstudio package)
 
-```bash
-# Clone the repository
-git clone https://github.com/pearwpi/VizFlyt2.git
-cd VizFlyt2
+## Quick Start
 
-# Install dependencies
-pip install numpy opencv-python torch transforms3d scipy matplotlib
-pip install nerfstudio  # Optional, for perception
-```
-
-#### Prepare Gaussian Splatting Model (Optional, for Perception)
-
-- Train a splatfacto model using Nerfstudio
-- Note the path to your `config.yml` file
-- Prepare camera settings JSON file
-
-## 🎯 Quick Start
-
-### Complete Integration (Perception + Planning + Dynamics)
+### Integrated Loop (Perception → Planning → Dynamics)
 
 ```python
-from planning import PotentialFieldPlanner
-from dynamics import PointMassDynamics
+from vizflyt2.perception.splat_render import SplatRenderer
+from vizflyt2.planning import PotentialFieldPlanner
+from vizflyt2.dynamics import PointMassDynamics
 import numpy as np
 
-# Setup planner (depth → velocity)
-planner = PotentialFieldPlanner(step_size=2.0)
-
-# Setup dynamics
-dynamics = PointMassDynamics(
-    initial_state={
-        'position': np.array([0., 0., -50.]),
-        'velocity': np.array([0., 0., 0.]),
-        'orientation_rpy': np.array([0., 0., 0.])
-    },
-    control_mode='velocity'
-)
-
-# Main loop
-for step in range(1000):
-    # 1. Get depth from camera/renderer
-    depth = get_depth_image()  # From SplatRenderer or camera
-    
-    # 2. Compute velocity command
-    action = planner.compute_action(depth_image=depth)
-    
-    # 3. Execute with dynamics
-    dynamics.step({'velocity': action['velocity']}, dt=0.1)
-    planner.step()
-```
-
-See [`planning/example_integration.py`](planning/example_integration.py) for complete working example.
-
-### Mono Camera Rendering
-
-```python
-from perception.splat_render import SplatRenderer
-import numpy as np
-
-# Initialize renderer
-renderer = SplatRenderer(
-    config_path="path/to/config.yml",
-    json_path="cam_settings.json"
-)
-
-# Define pose (NED coordinates)
-position = np.array([0.0, 0.0, 0.0])  # x, y, z in meters
-orientation_rpy = np.array([0.0, 0.0, 0.0])  # roll, pitch, yaw in radians
-
-# Render
-results = renderer.render(position, orientation_rpy)
-
-# Access outputs
-rgb_image = results['rgb']      # (H, W, 3) uint8 BGR
-depth_map = results['depth']    # (H, W) float32
-```
-
-### Stereo Camera Rendering
-
-```python
-from perception.stereo_camera import StereoCamera
-import numpy as np
-
-# Initialize stereo camera with 6.5cm baseline
-stereo = StereoCamera(
-    config_path="path/to/config.yml",
-    json_path="cam_settings.json",
-    baseline=0.065  # meters
-)
-
-# Render stereo pair
-results = stereo.render(position, orientation_rpy)
-
-# Access outputs
-rgb_left = results['rgb_left']       # (H, W, 3) uint8 BGR
-rgb_right = results['rgb_right']     # (H, W, 3) uint8 BGR
-depth_left = results['depth_left']   # (H, W) float32
-depth_right = results['depth_right'] # (H, W) float32
-```
-
-### Module Composition
-
-Compose modules using the `+` operator:
-
-```python
-from perception.splat_render import SplatRenderer
-from perception.modules import rgb_vision_module_factory
-import cv2
-
-# Create renderer
+# Initialize components
 renderer = SplatRenderer("config.yml", "cam_settings.json")
-
-# Create custom module with decorator
-@rgb_vision_module_factory
-def edge_detector(rgb_image):
-    gray = cv2.cvtColor(rgb_image, cv2.COLOR_BGR2GRAY)
-    edges = cv2.Canny(gray, 50, 150)
-    return {'edges': edges}
-
-# Compose with + operator
-pipeline = renderer + edge_detector
-
-# Render
-results = pipeline.render(position, orientation_rpy)
-# Access: results['rgb'], results['depth'], results['edges']
-```
-
-## 🛩️ Dynamics
-
-Super simple point-mass dynamics for trajectory generation:
-
-```python
-import numpy as np
-from dynamics import PointMassDynamics
-
-# Velocity mode - direct control
+planner = PotentialFieldPlanner(step_size=2.0)
 dynamics = PointMassDynamics(
-    initial_state={
-        'position': np.array([0., 0., -50.]),
-        'velocity': np.array([10., 0., 0.]),
-        'orientation_rpy': np.array([0., 0., 0.])
-    },
+    initial_state={'position': np.array([0., 0., -50.]),
+                   'velocity': np.array([0., 0., 0.]),
+                   'orientation_rpy': np.array([0., 0., 0.])},
     control_mode='velocity'
 )
 
 # Simulation loop
-dt = 0.01
-for i in range(1000):
-    dynamics.step({'velocity': np.array([10., 5., 0.])}, dt)
-    position, orientation = dynamics.get_render_params()
-```
-
-**Two modes:**
-- **`velocity`**: Set velocity directly (kinematic, no physics)
-- **`acceleration`**: Set acceleration (optional gravity)
-
-See [`dynamics/README.md`](dynamics/README.md) for examples.
-
-## 🛤️ Planning
-
-## 🛤️ Planning
-
-All planners use a unified interface: `compute_action(**kwargs) → {'velocity': ...}`
-
-### Reactive Planning (Vision-Based)
-
-```python
-from planning import PotentialFieldPlanner
-
-planner = PotentialFieldPlanner(step_size=2.0, verbose=False)
-
 for step in range(1000):
-    depth = get_depth_image()
-    action = planner.compute_action(depth_image=depth)
-    
-    dynamics.step({'velocity': action['velocity']}, dt=0.1)
+    pos, orient = dynamics.get_render_params()
+    depth = renderer.render(pos, orient)['depth']
+    velocity = planner.compute_action(depth_image=depth)['velocity']
+    dynamics.step({'velocity': velocity}, dt=0.1)
     planner.step()
 ```
 
-### Trajectory Planning
+### Perception: Mono and Stereo Cameras
 
 ```python
-from planning import TrajectoryPlanner
-import numpy as np
+from vizflyt2.perception.splat_render import SplatRenderer
+from vizflyt2.perception.stereo_camera import StereoCamera
 
-planner = TrajectoryPlanner(dt=0.01)
-planner.plan_circle(np.array([0., 0., -50.]), radius=20., duration=10.)
+# Mono camera
+renderer = SplatRenderer("config.yml", "cam_settings.json")
+results = renderer.render(position, orientation_rpy)
+rgb, depth = results['rgb'], results['depth']
 
-planner.reset()
-while not planner.is_complete():
-    action = planner.compute_action()
-    dynamics.step({'velocity': action['velocity']}, dt=0.01)
-    planner.step()
-    planner.current_index += 1
+# Stereo camera (6.5cm baseline)
+stereo = StereoCamera("config.yml", "cam_settings.json", baseline=0.065)
+results = stereo.render(position, orientation_rpy)
+left_rgb, right_rgb = results['rgb_left'], results['rgb_right']
 ```
 
-**Primitives**: line, circle, figure-8, spiral, waypoints
-
-### Custom Planners (e.g., RL Agents)
+### Composable Vision Modules
 
 ```python
-from planning import BasePlanner
-
-class RLPlanner(BasePlanner):
-    def compute_action(self, observation=None, **kwargs):
-        action = self.model.predict(observation)
-        return {'velocity': action[:3]}
-```
-
-See [`planning/README.md`](planning/README.md) for details.
-
-## 📚 Examples
-
-VizFlyt2 includes focused example scripts to help you get started:
-
-### 1. **basic_examples.py** - Start Here
-Simple examples for mono, stereo, and basic composition.
-
-```bash
-cd perception
-python basic_examples.py
-```
-
-### 2. **custom_module_example.py** - Custom Modules
-Learn TWO ways to create custom modules:
-- **Decorator factories** (`@rgb_vision_module_factory`) - Quick & simple
-- **Subclassing** (`class MyModule(VisionModule)`) - Full control
-
-```bash
-python custom_module_example.py
-```
-
-### 3. **composition_examples.py** - Advanced Pipelines
-Complex multi-module compositions with interactive menu:
-- Noise + Optical Flow
-- Stereo + Event Cameras
-- Multi-stage pipelines (noise → blur → edges)
-
-```bash
-python composition_examples.py
-```
-
-### 4. **stereo_composition_example.py** - Stereo Compositions
-How vision modules work with stereo cameras (runs independently on left/right).
-
-```bash
-python stereo_composition_example.py
-```
-
-**See [perception/EXAMPLES.md](perception/EXAMPLES.md) for detailed guide.**
-
-## 🏗️ Module Architecture
-
-VizFlyt2 uses a hierarchical module system with two types:
-
-### BaseModule
-Renders RGB and depth directly from the Gaussian Splat scene (first-stage):
-- **SplatRenderer**: Single camera RGB + depth
-- **StereoCamera**: Stereo camera RGB + depth
-
-### VisionModule  
-Processes RGB/depth to produce derived outputs (second-stage):
-- **EventCamera**: Simulates DVS events from intensity changes
-- **OpticalFlow**: Computes motion between frames
-- **SnowModule**: Adds weather effects
-- **Custom modules**: Create via decorators or subclassing
-
-## 🎨 Custom Modules
-
-### Quick Way: Decorator Factories
-
-For simple, stateless processing:
-
-```python
-from perception.modules import rgb_vision_module_factory, vision_module_factory
+from vizflyt2.perception.modules import rgb_vision_module_factory
 import cv2
 
-# RGB-only processing (automatically extracts rgb from kwargs)
 @rgb_vision_module_factory
-def brightness_boost(rgb_image):
-    return {'rgb': cv2.convertScaleAbs(rgb_image, alpha=1.3, beta=20)}
+def edge_detector(rgb_image):
+    gray = cv2.cvtColor(rgb_image, cv2.COLOR_BGR2GRAY)
+    return {'edges': cv2.Canny(gray, 50, 150)}
 
-# Generic processing (access all kwargs)
-@vision_module_factory
-def depth_overlay(position, orientation_rpy, **kwargs):
-    rgb = kwargs.get('rgb')
-    depth = kwargs.get('depth')
-    if rgb is None or depth is None:
-        return {}
-    
-    # Blend depth visualization with RGB
-    depth_colored = cv2.applyColorMap(
-        cv2.normalize(depth, None, 0, 255, cv2.NORM_MINMAX).astype(np.uint8),
-        cv2.COLORMAP_JET
-    )
-    blended = cv2.addWeighted(rgb, 0.7, depth_colored, 0.3, 0)
-    return {'blended': blended}
-
-# Use in composition
-pipeline = renderer + brightness_boost + depth_overlay
-```
-
-### Full Control: Subclassing
-
-For modules with state or configuration:
-
-```python
-from perception.modules import VisionModule
-import cv2
-
-class EdgeDetector(VisionModule):
-    def __init__(self, low_threshold=50, high_threshold=150):
-        self.low_threshold = low_threshold
-        self.high_threshold = high_threshold
-    
-    def render(self, position, orientation_rpy, rgb=None, **kwargs):
-        if rgb is None:
-            return {}
-        
-        gray = cv2.cvtColor(rgb, cv2.COLOR_BGR2GRAY)
-        edges = cv2.Canny(gray, self.low_threshold, self.high_threshold)
-        
-        return {'edges': edges, 'rgb': rgb}
-
-# Use in composition
-edge_detector = EdgeDetector(low_threshold=100, high_threshold=200)
+# Compose with + operator
 pipeline = renderer + edge_detector
+results = pipeline.render(position, orientation_rpy)
+# Access: results['rgb'], results['depth'], results['edges']
 ```
 
-**When to use each:**
-- **Decorators**: Simple functions, quick prototyping, stateless processing
-- **Subclassing**: Need initialization parameters, stateful processing, complex logic
-
-## 🔗 Module Composition
-
-Compose modules using the `+` operator to create pipelines:
+### Dynamics
 
 ```python
-from perception.splat_render import SplatRenderer
-from perception.stereo_camera import StereoCamera
+from vizflyt2.dynamics import PointMassDynamics
 
-# Example 1: Mono pipeline
-renderer = SplatRenderer("config.yml", "cam.json")
-pipeline = renderer + noise_module + blur_module + edge_detector
+dynamics = PointMassDynamics(
+    initial_state={'position': np.array([0., 0., -50.]),
+                   'velocity': np.array([10., 0., 0.]),
+                   'orientation_rpy': np.array([0., 0., 0.])},
+    control_mode='velocity'  # or 'acceleration'
+)
 
-# Example 2: Stereo pipeline (vision modules run on both left and right)
-stereo = StereoCamera("config.yml", "cam.json", baseline=0.065)
-stereo_pipeline = stereo + snow_module + edge_detector
-
-# Results have _left and _right suffixes for vision module outputs
-results = stereo_pipeline.render(position, orientation_rpy)
-# Access: results['rgb_left'], results['rgb_right']
-#         results['edges_left'], results['edges_right']
-
-# Example 3: Chain multiple vision modules
-pipeline = renderer + module1 + module2 + module3
+for i in range(1000):
+    dynamics.step({'velocity': np.array([10., 5., 0.])}, dt=0.01)
 ```
 
-**How it works:**
-1. First module (BaseModule) renders RGB and depth
-2. Each VisionModule receives previous outputs via `**kwargs`
-3. Outputs flow through the pipeline automatically
-4. For stereo, vision modules run independently on left and right views
+### Planning
 
-## 📁 File Structure
+```python
+from vizflyt2.planning import TrajectoryPlanner, PotentialFieldPlanner
 
-```
-VizFlyt2/
-├── README.md
-├── QUICK_REFERENCE.md           # Quick reference
-├── COMPOSITION_GUIDE.md         # Detailed composition guide
-├── dynamics/                     # Dynamics models
-│   ├── README.md                # Dynamics documentation
-│   ├── __init__.py
-│   ├── base.py                  # Base dynamics class
-│   ├── point_mass.py            # Point-mass model (100 lines)
-│   ├── utils.py                 # Utilities
-│   └── example_simple.py        # Example simulation
-├── planning/                     # Trajectory planning
-│   ├── README.md                # Planning documentation
-│   ├── __init__.py
-│   ├── primitives.py            # Trajectory primitives
-│   ├── trajectory.py            # TrajectoryPlanner class
-│   ├── planner.py               # Vision-based obstacle avoidance
-│   ├── example_planning.py      # Trajectory examples
-│   └── example_vision_planning.py  # Vision-based examples
-└── perception/
-    ├── modules.py               # Base classes + decorator factories
-    ├── stereo_camera.py         # Stereo camera implementation
-    ├── splat_render.py          # Gaussian splatting renderer
-    ├── utils.py                 # Utility functions
-    ├── EXAMPLES.md              # Example guide
-    ├── basic_examples.py        # Basic usage (start here!)
-    ├── custom_module_example.py # Decorators + subclassing
-    ├── composition_examples.py  # Advanced compositions
-    └── stereo_composition_example.py  # Stereo-specific examples
+# Trajectory planning
+traj_planner = TrajectoryPlanner(dt=0.01)
+traj_planner.plan_circle(center=np.array([0., 0., -50.]), radius=20., duration=10.)
+while not traj_planner.is_complete():
+    velocity = traj_planner.compute_action()['velocity']
+    dynamics.step({'velocity': velocity}, dt=0.01)
+    traj_planner.step()
+
+# Reactive obstacle avoidance
+reactive_planner = PotentialFieldPlanner(step_size=2.0)
+velocity = reactive_planner.compute_action(depth_image=depth)['velocity']
 ```
 
-## ⚙️ Configuration
+## Project Structure
 
-### Camera Settings JSON Format
+```
+vizflyt2/
+├── perception/          # Gaussian Splatting rendering and vision modules
+│   ├── splat_render.py  # Mono camera renderer
+│   ├── stereo_camera.py # Stereo camera renderer
+│   ├── modules.py       # Module base classes and decorators
+│   └── utils.py
+├── dynamics/            # Point-mass dynamics model
+│   ├── point_mass.py    # Simple integrator (~105 lines)
+│   ├── base.py
+│   └── utils.py
+└── planning/            # Trajectory and reactive planning
+    ├── trajectory.py    # Trajectory primitives
+    ├── planner.py       # Potential field obstacle avoidance
+    ├── primitives.py    # Low-level trajectory generators
+    └── base.py
 
+Additional resources:
+├── QUICK_REFERENCE.md   # Code snippets and API reference
+├── COMPOSITION_GUIDE.md # Detailed module composition guide
+└── */EXAMPLES.md        # Example scripts documentation
+```
+
+## Examples
+
+The repository includes several example scripts demonstrating key features:
+
+- `perception/basic_examples.py` - Mono/stereo rendering basics
+- `perception/custom_module_example.py` - Creating custom vision modules
+- `planning/example_integration.py` - Complete perception-planning-dynamics loop
+- See `perception/EXAMPLES.md` for a comprehensive guide
+
+## Configuration
+
+### Camera Settings (JSON, nerfstudio format)
 ```json
 {
   "camera": {
@@ -486,134 +183,35 @@ VizFlyt2/
 }
 ```
 
-### Trajectory File Format
+### Coordinate System (NED)
+- **X**: North (forward), **Y**: East (right), **Z**: Down
+- **Orientation**: Roll-Pitch-Yaw (radians), aerospace convention
 
-Text file with one pose per line:
+## Documentation
+
+- [QUICK_REFERENCE.md](QUICK_REFERENCE.md) - API quick reference
+- [COMPOSITION_GUIDE.md](COMPOSITION_GUIDE.md) - Module composition patterns
+- [vizflyt2/perception/EXAMPLES.md](vizflyt2/perception/EXAMPLES.md) - Example walkthrough
+- [vizflyt2/dynamics/README.md](vizflyt2/dynamics/README.md) - Dynamics details
+- [vizflyt2/planning/README.md](vizflyt2/planning/README.md) - Planning algorithms
+
+## Performance
+
+Typical rendering times (RTX 3090ti): ~200Hz
+
+## License
+
+## Acknowledgments
+
+Built on [Nerfstudio](https://docs.nerf.studio/) for Gaussian Splatting rendering. Developed by Colin Balfour and the WPI PeAR Lab.
+See [https://pear.wpi.edu/research/vizflyt.html](https://github.com/pearwpi/VizFlyt) for the original implementation of the [VizFlyt paper](https://arxiv.org/abs/2503.22876v1)
+```bibtex
+@inproceedings{vizflyt2025,
+  author    = {Kushagra Srivastava*, Rutwik Kulkarni*, Manoj Velmurugan*, Nitin J. Sanket},
+  title     = {VizFlyt: An Open-Source Perception-Centric Hardware-In-The-Loop Framework for Aerial Robotics},
+  booktitle = {IEEE International Conference on Robotics and Automation (ICRA)},
+  year      = {2025},
+  note      = {Accepted for publication},
+  url       = {https://github.com/pearwpi/VizFlyt}
+}
 ```
-x y z roll pitch yaw
-0.0 0.0 0.0 0.0 0.0 0.0
-1.0 0.0 0.0 0.0 0.0 0.0
-...
-```
-- Position: meters (NED frame)
-- Orientation: radians (roll-pitch-yaw)
-
-## 🧭 Coordinate Systems
-
-### NED Frame (North-East-Down)
-- **X**: North (forward)
-- **Y**: East (right)
-- **Z**: Down
-
-### Body Frame
-- **X**: Forward
-- **Y**: Right
-- **Z**: Down
-
-### Orientation
-- **Roll**: Rotation about X-axis (right-wing down is positive)
-- **Pitch**: Rotation about Y-axis (nose up is positive)
-- **Yaw**: Rotation about Z-axis (nose right is positive)
-
-## 🔧 Advanced Usage
-
-### Module Composition
-
-## 🧭 Coordinate Systems
-
-### NED Frame (North-East-Down)
-- **X**: North (forward)
-- **Y**: East (right)
-- **Z**: Down
-
-### Orientation
-- **Roll**: Rotation about X-axis (right-wing down is positive)
-- **Pitch**: Rotation about Y-axis (nose up is positive)
-- **Yaw**: Rotation about Z-axis (nose right is positive)
-
-## 📖 Documentation
-
-- **[QUICK_REFERENCE.md](QUICK_REFERENCE.md)** - Quick reference and code snippets
-- **[COMPOSITION_GUIDE.md](COMPOSITION_GUIDE.md)** - Detailed guide to module composition
-- **[perception/EXAMPLES.md](perception/EXAMPLES.md)** - Guide to example scripts
-- **[dynamics/README.md](dynamics/README.md)** - Dynamics models documentation
-- **[planning/README.md](planning/README.md)** - Trajectory planning documentation
-
-## 📊 Performance
-
-Typical rendering times (RTX 3090):
-- Mono rendering: ~20-40ms per frame
-- Stereo rendering: ~40-80ms per frame
-
-Tips for optimization:
-- Reduce resolution for faster rendering
-- Process trajectories in batches
-- Use simple vision modules when possible
-
-## 🐛 Troubleshooting
-
-**Issue: "Config file not found"**
-- Ensure the config path points to your trained splatfacto model
-- Check that the path is correct relative to your working directory
-
-**Issue: Slow rendering**
-- Verify GPU is being used (check CUDA availability)
-- Try reducing image resolution in camera settings JSON
-- Check that the model is in eval mode
-
-**Issue: Incorrect camera orientation**
-- Verify NED coordinate system is being used correctly
-- Check that roll-pitch-yaw convention matches (aerospace convention)
-- Test with position [0,0,0] and orientation [0,0,0] first
-
-## 🤝 Contributing
-
-Contributions are welcome! Please feel free to submit issues or pull requests.
-
-## 📄 License
-
-[Add your license information here]
-
-## 🙏 Acknowledgments
-
-- Built on [Nerfstudio](https://docs.nerf.studio/)
-- Uses Gaussian Splatting for high-quality rendering
-- Developed by WPI PEAR Lab
-
-## 📧 Contact
-
-For questions or support, please open an issue on GitHub or contact the maintainers.
-
-
-## 🐛 Troubleshooting
-
-**Issue: "Config file not found"**
-- Ensure the config path points to your trained splatfacto model
-- Check that the path is correct relative to your working directory
-
-**Issue: Slow rendering**
-- Verify GPU is being used (check CUDA availability)
-- Try reducing image resolution
-- Check that the model is in eval mode
-
-**Issue: Incorrect camera orientation**
-- Verify NED coordinate system is being used correctly
-- Check that roll-pitch-yaw convention matches (aerospace convention)
-
-## 🤝 Contributing
-
-Contributions are welcome! Please feel free to submit issues or pull requests.
-
-## 📄 License
-
-[Add your license information here]
-
-## 🙏 Acknowledgments
-
-- Built on [Nerfstudio](https://docs.nerf.studio/)
-- Uses Gaussian Splatting for high-quality rendering
-- Developed by WPI PEAR Lab
-
-## 📧 Contact
-
-For questions or support, please open an issue on GitHub or contact the maintainers.
