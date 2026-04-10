@@ -5,7 +5,7 @@ import open3d as o3d
 from scipy.ndimage import distance_transform_edt
 import argparse
 
-from plyfile import PlyData  # <-- ADDED
+from plyfile import PlyData
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--voxel_size", type=float, required=True)
