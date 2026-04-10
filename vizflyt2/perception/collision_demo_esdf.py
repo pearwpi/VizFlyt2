@@ -8,7 +8,6 @@ def run_demo(ply_path: str, voxel_size float):
 
     cd = collisionDetection(
         ply_path = ply_path,
-        esdf_path = "esdf_grid.npy",
         collision_threshold = 0.01,
         drone_radius = 0.3,
         num_points = 12,

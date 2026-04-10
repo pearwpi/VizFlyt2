@@ -8,7 +8,6 @@ class collisionDetection:
         self,
         #path to occupancy grid
         ply_path: String,
-        esdf_path: "esdf_grid.npy",
         collision_threshold = 0.01,
         drone_radius = 0.01,
         #resolution of collision sphere
@@ -20,7 +19,7 @@ class collisionDetection:
         self.voxel_size = voxel_size
         #Load environment
         self.ply = o3d.io.read_point_cloud(ply_path)
-        self.esdf = np.load(esdf_path)
+        self.esdf = np.load("esdf_grid.npy")
 
         self.collision_threshold = collision_threshold
         self.drone_radius = drone_radius
