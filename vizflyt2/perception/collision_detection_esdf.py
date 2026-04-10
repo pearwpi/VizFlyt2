@@ -12,7 +12,7 @@ class collisionDetection:
         num_points=10,
         env_min = None,
         env_max = None,
-        voxel_size = 0.05,
+        voxel_size: float,
     ):
         self.voxel_size = voxel_size
         #Load environment

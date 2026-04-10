@@ -34,7 +34,7 @@ def run_clipper():
     pcd_full.points = o3d.utility.Vector3dVector(all_points_full)
     
     #Downsample for rendering
-    pcd_down = pcd_full.voxel_down_sample(voxel_size=0.1)
+    pcd_down = pcd_full.voxel_down_sample(voxel_size=voxelsize)
     #convert downsampled for UI interaction
     all_points = np.asarray(pcd_down.points)
 
@@ -125,7 +125,7 @@ def run_clipper():
         
         np.save("env_min.npy", env_min)
         np.save("env_max.npy", env_max)
-        
+
         window.close()
 
         return "filtered.ply", env_min, env_max
@@ -411,13 +411,17 @@ def specify_occupancy(voxelsize, env_min):
     window.set_on_layout(on_layout)
 
     #Set camera
+
+    min_bound=env_min,
+    max_bound=env_min + np.array(density.shape) * voxelsize
+    center = (min_bound + max_bound)/ 2
     scene.setup_camera(
         60,
         o3d.geometry.AxisAlignedBoundingBox(
-            min_bound=[0, 0, 0],
-            max_bound=np.array(density.shape) * voxelsize
+            min_bound=min_bound,
+            max_bound=max_bound
         ),
-        np.array(density.shape) * voxelsize / 2
+        center
     )
 
     app.run()
