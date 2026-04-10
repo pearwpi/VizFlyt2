@@ -10,8 +10,8 @@ class collisionDetection:
         drone_radius = 0.01,
         #resolution of collision sphere
         num_points=10,
-        env_min = [-20, -20, -20],
-        env_max = [51, 51, 51],
+        env_min = [-6.0989647, -9.883753,  -1.438936 ],
+        env_max = [0.2639188, 0.968984,  0.729959 ],
         voxel_size = 0.05,
     ):
         self.voxel_size = voxel_size
@@ -29,7 +29,18 @@ class collisionDetection:
         self.x_max_env, self.y_max_env, self.z_max_env = env_max
 
     def metric_to_index(self, position):
-        return (position / self.voxel_size).astype(int)
+        origin = np.array([
+            self.x_min_env,
+            self.y_min_env,
+            self.z_min_env
+        ])
+
+        idx = ((position - origin) / self.voxel_size).astype(int)
+
+        # prevent crashes
+        idx = np.clip(idx, [0,0,0], np.array(self.esdf.shape) - 1)
+
+        return idx
         
     def check_collision(self, position):
         idx = self.metric_to_index(position)

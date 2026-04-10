@@ -9,7 +9,7 @@ def run_demo(ply_path: str, voxel_size: float):
     cd = collisionDetection(
         ply_path = ply_path,
         collision_threshold = 0.01,
-        drone_radius = 0.3,
+        drone_radius = 0.1,
         num_points = 12,
         voxel_size = voxel_size
         )
@@ -22,7 +22,10 @@ def run_demo(ply_path: str, voxel_size: float):
     
     # init_pos = ([2, 2, 2])
     # pos = np.array([init_pos[0] / voxel_size, init_pos[1] / voxel_size, init_pos[2] / voxel_size])
-    pos = np.array([10.6, 20, 6.8])
+    env_min = np.array([cd.x_min_env, cd.y_min_env, cd.z_min_env])
+    env_max = np.array([cd.x_max_env, cd.y_max_env, cd.z_max_env])
+
+    pos = np.array((env_min + env_max) / 2)
     step = 0.1
 
     free_radius = cd.get_closest_obstacle_distance(pos)
