@@ -1,5 +1,3 @@
-from tokenize import String
-
 import numpy as np
 import open3d as o3d
 
@@ -7,7 +5,7 @@ class collisionDetection:
     def __init__(
         self,
         #path to occupancy grid
-        ply_path: String,
+        ply_path: str,
         collision_threshold = 0.01,
         drone_radius = 0.01,
         #resolution of collision sphere
@@ -30,13 +28,14 @@ class collisionDetection:
         self.x_min_env, self.y_min_env, self.z_min_env = env_min
         self.x_max_env, self.y_max_env, self.z_max_env = env_max
 
-    
+    def metric_to_index(self, position):
+        return (position / self.voxel_size).astype(int)
+        
     def check_collision(self, position):
-       
-        return self.esdf[position[0], position[1], position[2]] * self.voxel_size <= self.drone_radius
+        idx = self.metric_to_index(position)
+        return self.esdf[idx[0], idx[1], idx[2]] * self.voxel_size <= self.drone_radius
 
     def check_out_of_bounds(self, position):
-        position = position * self.voxel_size
         if position[0] < self.x_min_env or position[0] > self.x_max_env:
             return True
         
@@ -49,24 +48,24 @@ class collisionDetection:
         return False
 
     def get_closest_obstacle_distance(self, position):
-        return self.esdf[position[0], position[1], position[2]] * self.voxel_size
-
+        idx = self.metric_to_index(position)
+        return self.esdf[idx[0], idx[1], idx[2]] * self.voxel_size
 
     def get_minimum_boundary_distance(self, position):
         
-        x_dist = self.position[0] - self.x_min_env - self.drone_radius
+        x_dist = position[0] - self.x_min_env - self.drone_radius
 
-        y_dist = self.position[1] - self.y_min_env - self.drone_radius
+        y_dist = position[1] - self.y_min_env - self.drone_radius
 
-        z_dist = self.position[2] - self.z_min_env - self.drone_radius
+        z_dist = position[2] - self.z_min_env - self.drone_radius
 
-        if(abs(position[0] - self.x_min_env) > self.position[0] - self.x_max_env):
-            x_dist = abs(self.position[0] - self.x_max_env) - self.drone_radius
+        if(abs(position[0] - self.x_min_env) > position[0] - self.x_max_env):
+            x_dist = abs(position[0] - self.x_max_env) - self.drone_radius
 
-        if(abs(position[1] - self.y_min_env) > self.position[1] - self.y_max_env):
-            y_dist = abs(self.position[1] - self.y_max_env) - self.drone_radius
+        if(abs(position[1] - self.y_min_env) > position[1] - self.y_max_env):
+            y_dist = abs(position[1] - self.y_max_env) - self.drone_radius
 
-        if(abs(position[1] - self.y_min_env) > self.position[1] - self.y_max_env):
-            z_dist = abs(self.position[2] - self.y_max_env) - self.drone_radius
+        if(abs(position[2] - self.y_min_env) > position[1] - self.y_max_env):
+            z_dist = abs(position[2] - self.y_max_env) - self.drone_radius
 
         return x_dist, y_dist, z_dist

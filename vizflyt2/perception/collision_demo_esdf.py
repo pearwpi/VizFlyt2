@@ -4,7 +4,7 @@ import sys
 from collision_detection_esdf import collisionDetection
 import argparse
 
-def run_demo(ply_path: str, voxel_size float):
+def run_demo(ply_path: str, voxel_size: float):
 
     cd = collisionDetection(
         ply_path = ply_path,
@@ -22,18 +22,18 @@ def run_demo(ply_path: str, voxel_size float):
     
     # init_pos = ([2, 2, 2])
     # pos = np.array([init_pos[0] / voxel_size, init_pos[1] / voxel_size, init_pos[2] / voxel_size])
-    pos = np.array([212, 400, 136], dtype=int)
-    step = 1
+    pos = np.array([10.6, 20, 6.8])
+    step = 0.1
 
     free_radius = cd.get_closest_obstacle_distance(pos)
-    print(f"Initial position: {pos * cd.voxel_size}, ESDF distance: {free_radius}")
+    print(f"Initial position: {pos}, ESDF distance: {free_radius}")
 
     free = o3d.geometry.TriangleMesh.create_sphere(radius=free_radius)
     free = o3d.geometry.LineSet.create_from_triangle_mesh(free)
     free.paint_uniform_color([1.0, 0, 1.0])
-    free.translate(pos * cd.voxel_size, relative=False) 
+    free.translate(pos, relative=False) 
     
-    drone.translate(pos * cd.voxel_size, relative=False)  
+    drone.translate(pos, relative=False)  
 
     vis = o3d.visualization.VisualizerWithKeyCallback()
     vis.create_window("Collision Demo (WASDRF , Q)")
@@ -44,7 +44,7 @@ def run_demo(ply_path: str, voxel_size float):
     vc = vis.get_view_control()
 
     def update_camera():
-        lookat = pos * cd.voxel_size
+        lookat = pos
         front = np.array([0.0, -.5, 0.3])
         up = np.array([0.0, 0.0, 1.0])
 
@@ -76,7 +76,7 @@ def run_demo(ply_path: str, voxel_size float):
         if hit:
             update_color(True)
             vis.update_geometry(drone)
-            print(f"COLLISION: BLOCKED AT {new_pos * cd.voxel_size}, ESDF distance: {dist}")
+            print(f"COLLISION: BLOCKED AT {new_pos}, ESDF distance: {dist}")
             free.paint_uniform_color([1.0, 0, 0])
             vis.update_geometry(free)
             return False
@@ -91,27 +91,27 @@ def run_demo(ply_path: str, voxel_size float):
         free = o3d.geometry.LineSet.create_from_triangle_mesh(free)
         free.paint_uniform_color([1.0, 0, 1.0])
        
-        free.translate(new_pos * cd.voxel_size, relative=False)
+        free.translate(new_pos, relative=False)
 
         vis.add_geometry(free)
 
         pos = new_pos
 
-        drone.translate(pos * cd.voxel_size, relative=False)
+        drone.translate(pos, relative=False)
 
         vis.update_geometry(drone)
 
         update_camera()
 
-        print(f"Moved to {pos * cd.voxel_size}, ESDF distance: {free_radius}")
+        print(f"Moved to {pos}, ESDF distance: {free_radius}")
         return False
 
-    vis.register_key_callback(ord("W"), lambda v: attempt_move(np.array([ step, 0, 0])))
-    vis.register_key_callback(ord("S"), lambda v: attempt_move(np.array([-step, 0, 0])))
-    vis.register_key_callback(ord("A"), lambda v: attempt_move(np.array([0,  step, 0])))
-    vis.register_key_callback(ord("D"), lambda v: attempt_move(np.array([0, -step, 0])))
-    vis.register_key_callback(ord("R"), lambda v: attempt_move(np.array([0, 0,  step])))
-    vis.register_key_callback(ord("F"), lambda v: attempt_move(np.array([0, 0, -step])))
+    vis.register_key_callback(ord("W"), lambda v: attempt_move(np.array([ step, 0.0, 0.0])))
+    vis.register_key_callback(ord("S"), lambda v: attempt_move(np.array([-step, 0.0, 0.0])))
+    vis.register_key_callback(ord("A"), lambda v: attempt_move(np.array([0.0,  step, 0.0])))
+    vis.register_key_callback(ord("D"), lambda v: attempt_move(np.array([0.0, -step, 0.0])))
+    vis.register_key_callback(ord("R"), lambda v: attempt_move(np.array([0.0, 0.0,  step])))
+    vis.register_key_callback(ord("F"), lambda v: attempt_move(np.array([0.0, 0.0, -step])))
     vis.register_key_callback(ord("Q"), lambda v: (vis.close(), False)[1])
 
     print("Controls: W/S (±X), A/D (±Y), R/F (±Z), Q quit")

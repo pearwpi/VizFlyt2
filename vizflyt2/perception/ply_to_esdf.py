@@ -5,6 +5,8 @@ import open3d as o3d
 from scipy.ndimage import distance_transform_edt
 import argparse
 
+from plyfile import PlyData  # <-- ADDED
+
 parser = argparse.ArgumentParser()
 parser.add_argument("--voxel_size", type=float, required=True)
 args = parser.parse_args()
@@ -14,19 +16,38 @@ voxelsize = args.voxel_size
 
 def create_density():
 
-    FILE_PATH = "output.csv"
+    FILE_PATH = "room_filtered_full.ply"
     #in meters, smaller is higher detail
     VOXEL_SIZE = voxelsize
     #get rid of weak gaussians
     ALPHA_THRESHOLD = 0.01
     #occupancy threshold, the higher the value the less sensitive occupance
 
-    df = pd.read_csv(FILE_PATH)
+    # df = pd.read_csv(FILE_PATH)
 
-    means = df[['x','y','z']].values
-    scales = df[['scale_0','scale_1','scale_2']].values
-    rots   = df[['rot_0','rot_1','rot_2','rot_3']].values
-    alphas = df['opacity'].values
+    ply = PlyData.read(FILE_PATH)
+    vertex = ply['vertex'].data
+
+    means = np.vstack([
+        vertex['x'],
+        vertex['y'],
+        vertex['z']
+    ]).T
+
+    scales = np.vstack([
+        vertex['scale_0'],
+        vertex['scale_1'],
+        vertex['scale_2']
+    ]).T
+
+    rots = np.vstack([
+        vertex['rot_0'],
+        vertex['rot_1'],
+        vertex['rot_2'],
+        vertex['rot_3']
+    ]).T
+
+    alphas = vertex['opacity']
 
     # Convert log-scales toreal scales
     scales = np.exp(scales)
