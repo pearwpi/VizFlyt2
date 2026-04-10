@@ -10,8 +10,8 @@ class collisionDetection:
         drone_radius = 0.01,
         #resolution of collision sphere
         num_points=10,
-        env_min = [-6.0989647, -9.883753,  -1.438936 ],
-        env_max = [0.2639188, 0.968984,  0.729959 ],
+        env_min = None,
+        env_max = None,
         voxel_size = 0.05,
     ):
         self.voxel_size = voxel_size
@@ -23,6 +23,10 @@ class collisionDetection:
         self.drone_radius = drone_radius
         self.num_points = num_points
 
+        if env_min is None:
+            env_min = np.load("env_min.npy")
+        if env_max is None:
+            env_max = np.load("env_max.npy")
 
         #must import constants
         self.x_min_env, self.y_min_env, self.z_min_env = env_min

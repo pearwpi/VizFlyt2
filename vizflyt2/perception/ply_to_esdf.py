@@ -122,7 +122,10 @@ def run_clipper():
         print("\nSaved filtered.ply")
         print("env_min =", env_min)
         print("env_max =", env_max)
-
+        
+        np.save("env_min.npy", env_min)
+        np.save("env_max.npy", env_max)
+        
         window.close()
 
         return "filtered.ply", env_min, env_max
