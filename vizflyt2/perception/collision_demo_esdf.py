@@ -2,8 +2,9 @@ import numpy as np
 import open3d as o3d
 import sys
 from collision_detection_esdf import collisionDetection
+import argparse
 
-def run_demo(ply_path: str):
+def run_demo(ply_path: str, voxel_size float):
 
     cd = collisionDetection(
         ply_path = ply_path,
@@ -11,7 +12,7 @@ def run_demo(ply_path: str):
         collision_threshold = 0.01,
         drone_radius = 0.3,
         num_points = 12,
-        voxel_size = 0.05
+        voxel_size = voxel_size
         )
 
     env = cd.ply
@@ -19,7 +20,9 @@ def run_demo(ply_path: str):
     drone = o3d.geometry.TriangleMesh.create_sphere(radius=cd.drone_radius)
     drone.compute_vertex_normals()
     drone.paint_uniform_color([0.2, 1.0, 0.2])
-
+    
+    # init_pos = ([2, 2, 2])
+    # pos = np.array([init_pos[0] / voxel_size, init_pos[1] / voxel_size, init_pos[2] / voxel_size])
     pos = np.array([212, 400, 136], dtype=int)
     step = 1
 
@@ -117,4 +120,11 @@ def run_demo(ply_path: str):
     vis.destroy_window()
 
 if __name__ == "__main__":
-    run_demo(sys.argv[1])
+    parser = argparse.ArgumentParser(description="Collision demo with ESDF")
+
+    parser.add_argument("ply_path", type=str, help="Path to point cloud (.ply)")
+    parser.add_argument("--voxel_size", type=float, default=0.05, help="Voxel size")
+
+    args = parser.parse_args()
+
+    run_demo(args.ply_path, args.voxel_size)

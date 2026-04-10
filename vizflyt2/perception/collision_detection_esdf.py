@@ -17,7 +17,7 @@ class collisionDetection:
         env_max = [51, 51, 51],
         voxel_size = 0.05,
     ):
-        self.voxel_size = 0.05
+        self.voxel_size = voxel_size
         #Load environment
         self.ply = o3d.io.read_point_cloud(ply_path)
         self.esdf = np.load(esdf_path)
