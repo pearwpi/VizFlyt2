@@ -26,7 +26,7 @@ def run_demo(ply_path: str, voxel_size: float):
     env_max = np.array([cd.x_max_env, cd.y_max_env, cd.z_max_env])
 
     pos = np.array((env_min + env_max) / 2)
-    step = 0.1
+    step = voxel_size * 0.5
 
     free_radius = cd.get_closest_obstacle_distance(pos)
     print(f"Initial position: {pos}, ESDF distance: {free_radius}")
@@ -64,6 +64,7 @@ def run_demo(ply_path: str, voxel_size: float):
 
 
     def attempt_move(d):
+        
         nonlocal pos, free
 
         new_pos = pos + d
@@ -73,7 +74,11 @@ def run_demo(ply_path: str, voxel_size: float):
             return False
 
         dist = cd.get_closest_obstacle_distance(new_pos)
-        
+    
+        print("ESDF dist:", dist)
+        print("Drone radius:", cd.drone_radius)
+        print("Index:", cd.metric_to_index(new_pos))
+
         hit = cd.check_collision(new_pos)
 
         if hit:

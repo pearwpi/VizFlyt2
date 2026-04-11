@@ -34,7 +34,7 @@ def run_clipper():
     pcd_full.points = o3d.utility.Vector3dVector(all_points_full)
     
     #Downsample for rendering
-    pcd_down = pcd_full.voxel_down_sample(voxel_size=voxelsize * 3)
+    pcd_down = pcd_full.voxel_down_sample(voxel_size=voxelsize * 2)
     #convert downsampled for UI interaction
     all_points = np.asarray(pcd_down.points)
 
@@ -65,6 +65,7 @@ def run_clipper():
     window.add_child(panel)
 
     pcd = o3d.geometry.PointCloud()
+    pcd_outside = o3d.geometry.PointCloud()
 
     #rendering material
     mat = rendering.MaterialRecord()
@@ -80,17 +81,28 @@ def run_clipper():
         )
 
         inside = all_points[mask]
+        outside = all_points[~mask]
 
         if len(inside) == 0:
             return
 
-        #update scene
         pcd.points = o3d.utility.Vector3dVector(inside)
-        pcd.paint_uniform_color([1, 0, 0])
+        pcd.paint_uniform_color([.9, .1, .1])  # inside
+
+        pcd_outside.points = o3d.utility.Vector3dVector(outside)
+        pcd_outside.paint_uniform_color([0.7, 0.7, 0.7])  # outside
 
         #re-redner scene
         scene.scene.clear_geometry()
-        scene.scene.add_geometry("pcd", pcd, mat)
+        scene.scene.add_geometry("outside", pcd_outside, mat)
+        scene.scene.add_geometry("inside", pcd, mat)
+
+        bbox = o3d.geometry.AxisAlignedBoundingBox(
+            min_bound=[bounds["x_min"], bounds["y_min"], bounds["z_min"]],
+            max_bound=[bounds["x_max"], bounds["y_max"], bounds["z_max"]],
+        )
+        bbox.color = (1.0, 1.0, 0.0)  # yellow
+        scene.scene.add_geometry("bbox", bbox, mat)
 
         scene.setup_camera(
             60,
@@ -342,16 +354,26 @@ def specify_occupancy(voxelsize, env_min):
         inds = np.argwhere(density > threshold)
         values = density[density > threshold]
 
-        points = inds.astype(np.float32) * voxelsize
-
-        #color by density(for now)
-        if len(values) > 0:
-            norm = (values - values.min()) / (values.max() - values.min() + 1e-8)
-            colors = np.stack([norm, 0.2*np.ones_like(norm), 1-norm], axis=1)
-        else:
-            colors = np.zeros((len(points), 3))
-
+        points = inds.astype(np.float32) * voxelsize + env_min
+        
         pcd.points = o3d.utility.Vector3dVector(points)
+
+        #color gradiant
+        z_vals = points[:, 2]
+
+        z_min = env_min[2]
+        z_max = env_min[2] + density.shape[2] * voxelsize
+
+        # normalize to [0,1]
+        t = (z_vals - z_min) / (z_max - z_min + 1e-8)
+
+        # create rainbow (HSV → RGB approximation)
+        colors = np.zeros((len(t), 3))
+
+        colors[:, 0] = np.clip(1.5 - np.abs(4*t - 3), 0, 1)  # red
+        colors[:, 1] = np.clip(1.5 - np.abs(4*t - 2), 0, 1)  # green
+        colors[:, 2] = np.clip(1.5 - np.abs(4*t - 1), 0, 1)  # blue
+
         pcd.colors = o3d.utility.Vector3dVector(colors)
 
         scene.scene.clear_geometry()
@@ -412,7 +434,7 @@ def specify_occupancy(voxelsize, env_min):
 
     #Set camera
 
-    min_bound= env_min
+    min_bound= [0, 0, 0]
     max_bound= env_min + np.array(density.shape) * voxelsize
     center = (min_bound + max_bound)/ 2
     scene.setup_camera(
@@ -421,7 +443,7 @@ def specify_occupancy(voxelsize, env_min):
             min_bound=min_bound,
             max_bound=max_bound
         ),
-        center
+        max_bound / 2,
     )
 
     app.run()
@@ -431,8 +453,8 @@ def specify_occupancy(voxelsize, env_min):
 def create_esdf(threshold, env_min, env_max):
     density = np.load("density_grid.npy")
 
-    # 0 = occupied, 1 = free
-    grid = (density <= threshold).astype(np.uint8)
+    grid = (density > threshold).astype(np.uint8)  # invert meaning
+    grid = 1 - grid  # make 0 = occupied, 1 = free
 
     esdf = distance_transform_edt(grid).astype(np.float32)
 

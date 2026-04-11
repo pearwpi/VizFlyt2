@@ -6,13 +6,13 @@ class collisionDetection:
         self,
         #path to occupancy grid
         ply_path: str,
+        voxel_size: float,
         collision_threshold = 0.01,
         drone_radius = 0.01,
         #resolution of collision sphere
         num_points=10,
         env_min = None,
         env_max = None,
-        voxel_size: float,
     ):
         self.voxel_size = voxel_size
         #Load environment
