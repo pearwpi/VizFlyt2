@@ -53,8 +53,12 @@ setup(
             "imageio[ffmpeg]>=2.9.0",
         ],
         "perception": [
-            # Nerfstudio should be installed separately following their guide
-            # This is just a placeholder to document the dependency
+            # PeAR's fork, not upstream: it carries splatfacto training defaults
+            # tuned for this lab's captures, and batched multi-camera rendering
+            # (upstream's get_outputs raises for a Cameras holding C > 1 views).
+            # See the README for details. Upstream nerfstudio still works if you
+            # only ever render one camera at a time.
+            "nerfstudio @ git+https://github.com/pearwpi/nerfstudio.git@main",
         ],
     },
     entry_points={
