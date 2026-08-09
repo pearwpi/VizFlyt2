@@ -34,9 +34,22 @@ git clone https://github.com/pearwpi/VizFlyt2.git
 cd VizFlyt2
 pip install -e .
 
-# Optional: Install nerfstudio for perception
-pip install nerfstudio
+# Optional: Install nerfstudio for perception.
+# Use PeAR's fork, not upstream -- see the note below.
+pip install "nerfstudio @ git+https://github.com/pearwpi/nerfstudio.git@main"
 ```
+
+> **Why the fork?** `pearwpi/nerfstudio` carries two changes VizFlyt2 depends on.
+> Splatfacto's training defaults (cull-alpha threshold, scale regularization) are
+> tuned for the scenes this lab captures, so a splat trained against upstream
+> reconstructs differently. And `SplatfactoModel.get_outputs` accepts a `Cameras`
+> holding **C views**, rendering them in one `rasterization()` call -- upstream
+> raises, because it collapses the camera resolution with `.item()`. Batched
+> rendering is what makes many simultaneous viewpoints (vectorized RL
+> environments, multi-view evaluation, dataset generation) practical: measured
+> ~18-24x faster per frame at C=64-256 on a 2.4M-gaussian scene, and validated to
+> match upstream's single-camera output to within float32 rounding. Upstream
+> still works for single-camera rendering.
 
 **Requirements**: Python 3.8+, CUDA GPU (11.8 and 12.6 tested, on a 30-series GPU. Compatibility mostly lies within the nerfstudio package)
 
